@@ -92,8 +92,42 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;ba
 .filter-btn:hover{border-color:var(--shs-navy);color:var(--shs-navy)}
 .filter-btn.active{background:var(--shs-navy);border-color:var(--shs-navy);color:#fff}
 
-@media(max-width:900px){.chart-row{grid-template-columns:1fr}.kpi-grid{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:600px){.kpi-grid{grid-template-columns:1fr}.topbar{padding:0 16px}.content{padding:16px}}
+
+@media(max-width:900px){
+  .chart-row{grid-template-columns:1fr}
+  .kpi-grid{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:600px){
+  .topbar{padding:0 14px;height:auto;min-height:52px;flex-wrap:wrap;gap:6px;padding-top:8px;padding-bottom:8px}
+  .topbar-left{flex-wrap:wrap;gap:10px}
+  .topbar-divider{display:none}
+  .topbar-title{display:none}
+  .shs-logo-sub{display:none}
+  .topbar-right{gap:8px}
+  .sync-info span{max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px}
+  .refresh-btn{padding:5px 10px;font-size:11px}
+  .tabs{padding:0 14px;overflow-x:auto;scrollbar-width:none}
+  .tabs::-webkit-scrollbar{display:none}
+  .tab{padding:10px 14px;font-size:12px;white-space:nowrap}
+  .tab svg{display:none}
+  .filter-bar{padding:8px 14px;flex-wrap:wrap;gap:6px}
+  .filter-btn{padding:5px 10px;font-size:11px}
+  #filter-label{display:none}
+  .content{padding:14px}
+  .section-label{margin:16px 0 10px}
+  .kpi-grid{grid-template-columns:repeat(2,1fr);gap:8px}
+  .kpi{padding:12px 14px}
+  .kpi-value{font-size:20px}
+  .kpi-label{font-size:10px}
+  .kpi-sub{font-size:10px}
+  .chart-row{grid-template-columns:1fr;gap:10px}
+  .chart-card{padding:14px}
+  .chart-title{font-size:12px}
+  .chart-badge{font-size:10px}
+}
+@media(max-width:360px){
+  .kpi-grid{grid-template-columns:1fr}
+}
 </style>
 </head>
 <body>
@@ -143,7 +177,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;ba
 </div>
 
 
-<div style="background:#fff;border-bottom:1px solid var(--gray-200);padding:10px 28px;display:flex;align-items:center;gap:8px">
+<div class="filter-bar" style="background:#fff;border-bottom:1px solid var(--gray-200);padding:10px 28px;display:flex;align-items:center;gap:8px">
   <span style="font-size:12px;color:var(--gray-600);font-weight:500;margin-right:4px">Kỳ báo cáo:</span>
   <div style="display:flex;gap:4px" id="filter-btns">
     <button class="filter-btn active" onclick="setFilter('week',this)">Tuần</button>
@@ -316,15 +350,31 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;ba
 const SUPABASE_URL = 'https://zwhqitghsrgmmcthbivh.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp3aHFpdGdoc3JnbW1jdGhiaXZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3OTM3MjYsImV4cCI6MjA5NDM2OTcyNn0.E4Mv8NR-u9XLrgA-vLOp4bsXDKt2PgjbewbFCbFgvAk';
 
-const PALETTE = ['#003087','#0057B8','#00875A','#F5A623','#DE350B','#7c3aed','#0891b2','#be185d'];
-const charts = {};
+const PALETTE=['#003087','#0057B8','#00875A','#F5A623','#DE350B','#7c3aed','#0891b2','#be185d'];
+const charts={};
+let currentFilter='month';
 
-async function sb(table, select='*', order=''){
-  let url = `${SUPABASE_URL}/rest/v1/${table}?select=${select}`;
-  if(order) url += `&order=${order}`;
-  const r = await fetch(url,{headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`}});
+const FILTER_LABELS={week:'Tuần hiện tại',month:'Tháng hiện tại',year:'Năm tài chính 2026'};
+
+function setFilter(f,el){
+  currentFilter=f;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('filter-label').textContent=FILTER_LABELS[f==='year'?'year':f];
+  Object.keys(loaded).forEach(k=>delete loaded[k]);
+  const activeTab=document.querySelector('.tab.active');
+  const match=activeTab.getAttribute('onclick').match(/'([^']+)'/);
+  if(match) switchTab(match[1],activeTab);
+}
+
+async function sb(table,select='*',filters=[]){
+  let url=`${SUPABASE_URL}/rest/v1/${table}?select=${select}`;
+  filters.forEach(f=>url+=`&${f}`);
+  const r=await fetch(url,{headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`}});
   return r.json();
 }
+
+function ptype(){ return currentFilter==='year'?'fiscal_year':currentFilter; }
 
 function fmt(v,d=1){
   if(v==null||v==='')return'—';
@@ -341,18 +391,16 @@ function mkChart(id,config){
 }
 
 const scales={
-  x:{grid:{color:'rgba(0,0,0,0.04)'},ticks:{color:'#9EA8BC',font:{size:11,family:'system-ui'}}},
-  y:{grid:{color:'rgba(0,0,0,0.04)'},ticks:{color:'#9EA8BC',font:{size:11,family:'system-ui'}}}
+  x:{grid:{color:'rgba(0,0,0,0.04)'},ticks:{color:'#9EA8BC',font:{size:11}}},
+  y:{grid:{color:'rgba(0,0,0,0.04)'},ticks:{color:'#9EA8BC',font:{size:11}}}
 };
 
 async function loadOverview(){
-  await loadTradingKpiOverview();
-  const [kpi,na,ar,cf,nav]=await Promise.all([
-    sb('kpi_summary','*','id.desc&limit=1'),
-    sb('new_accounts','*','month_label.asc'),
-    sb('active_rate','*','month_label.asc'),
-    sb('cashflow','*','month_label.asc'),
-    sb('nav_trend','*','month_label.asc')
+  const pt=ptype();
+  const [kpi,series,ms]=await Promise.all([
+    sb('kpi_by_period','*',[`period_type=eq.${pt}`,'order=period_key.desc','limit=1']),
+    sb('series_by_period','*',[`period_type=eq.${pt}`,'order=period_key.asc']),
+    sb('market_share','*',['order=gtgd_bil.desc'])
   ]);
 
   if(kpi[0]){
@@ -364,55 +412,73 @@ async function loadOverview(){
     document.getElementById('kpi-nav').textContent=fmt(k.total_nav_bil);
     document.getElementById('kpi-aum').textContent=fmt(k.total_aum_bil);
     document.getElementById('kpi-margin').textContent=fmt(k.total_margin_bil);
+    document.getElementById('ov-gtgd').textContent=fmt(k.gtgd_bil);
+    document.getElementById('ov-fee').textContent=fmt(k.fee_mil,0);
+    document.getElementById('ov-deriv-fee').textContent=fmt(k.deriv_fee_mil,0);
+    if(k.market_share_pct!=null){
+      document.getElementById('ov-market-share').textContent=k.market_share_pct+'%';
+      document.getElementById('ov-market-rank').textContent=k.market_rank?'xếp hạng #'+k.market_rank:'';
+    }
   }
 
-  if(na.length){
-    const months=[...new Set(na.map(r=>r.month_label))];
-    const channels=[...new Set(na.map(r=>r.channel))];
+  // Charts from series
+  const navSeries=series.filter(r=>r.metric==='nav');
+  if(navSeries.length){
+    const labels=[...new Set(navSeries.map(r=>r.dimension))];
+    mkChart('c-nav',{type:'line',data:{labels,datasets:[{
+      data:labels.map(l=>{ const r=navSeries.find(x=>x.dimension===l); return r?r.value_num:0; }),
+      borderColor:'#003087',backgroundColor:'rgba(0,48,135,0.06)',borderWidth:2.5,
+      pointRadius:4,pointBackgroundColor:'#003087',fill:true,tension:0.35
+    }]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales}});
+  }
+
+  const naSeries=series.filter(r=>r.metric==='new_accounts');
+  if(naSeries.length){
+    const allDims=[...new Set(naSeries.map(r=>r.dimension))];
+    const months=[...new Set(allDims.map(d=>d.split('|')[0]))].sort();
+    const channels=[...new Set(allDims.map(d=>d.split('|')[1]))];
     document.getElementById('legend-open').innerHTML=channels.map((c,i)=>
       `<span class="leg"><span class="leg-dot" style="background:${PALETTE[i%PALETTE.length]}"></span>${c}</span>`
     ).join('');
     mkChart('c-open',{type:'bar',data:{labels:months,datasets:channels.map((ch,i)=>({
       label:ch,
-      data:months.map(m=>{const r=na.find(x=>x.month_label===m&&x.channel===ch);return r?r.new_accounts:0;}),
+      data:months.map(m=>{ const r=naSeries.find(x=>x.dimension===`${m}|${ch}`); return r?r.value_num:0; }),
       backgroundColor:PALETTE[i%PALETTE.length],borderRadius:3
     }))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
       scales:{x:{...scales.x,stacked:true},y:{...scales.y,stacked:true}}}});
   }
 
-  if(ar.length){
-    mkChart('c-active-rate',{type:'line',data:{labels:ar.map(r=>r.month_label),datasets:[{
-      data:ar.map(r=>r.active_rate_pct),borderColor:'#003087',
+  const arSeries=series.filter(r=>r.metric==='active_rate');
+  if(arSeries.length){
+    mkChart('c-active-rate',{type:'line',data:{labels:arSeries.map(r=>r.dimension),datasets:[{
+      data:arSeries.map(r=>r.value_num),borderColor:'#003087',
       backgroundColor:'rgba(0,48,135,0.07)',borderWidth:2.5,
       pointRadius:4,pointBackgroundColor:'#003087',fill:true,tension:0.35
     }]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
-      scales:{x:scales.x,y:{...scales.y,ticks:{...scales.y.ticks,callback:v=>v+'%'}}}}});
+      scales:{x:scales.x,y:{...scales.y,ticks:{callback:v=>v+'%'}}}}});
   }
 
-  if(cf.length){
-    mkChart('c-cashflow',{type:'bar',data:{labels:cf.map(r=>r.month_label),datasets:[
-      {label:'Cash in',data:cf.map(r=>r.cash_in_bil),backgroundColor:'rgba(0,135,90,0.75)',borderRadius:3},
-      {label:'Cash out',data:cf.map(r=>-Math.abs(r.cash_out_bil)),backgroundColor:'rgba(222,53,11,0.7)',borderRadius:3},
-      {label:'Net',data:cf.map(r=>r.net_bil),type:'line',borderColor:'#003087',
+  const ciSeries=series.filter(r=>r.metric==='cash_in');
+  const coSeries=series.filter(r=>r.metric==='cash_out');
+  const netSeries=series.filter(r=>r.metric==='net_cash');
+  if(ciSeries.length){
+    const labels=ciSeries.map(r=>r.dimension);
+    mkChart('c-cashflow',{type:'bar',data:{labels,datasets:[
+      {label:'Cash in',data:ciSeries.map(r=>r.value_num),backgroundColor:'rgba(0,135,90,0.75)',borderRadius:3},
+      {label:'Cash out',data:coSeries.map(r=>-Math.abs(r.value_num)),backgroundColor:'rgba(222,53,11,0.7)',borderRadius:3},
+      {label:'Net',data:netSeries.map(r=>r.value_num),type:'line',borderColor:'#003087',
        backgroundColor:'transparent',borderWidth:2.5,pointRadius:3,tension:0.3}
     ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales}});
-  }
-
-  if(nav.length){
-    mkChart('c-nav',{type:'line',data:{labels:nav.map(r=>r.month_label),datasets:[{
-      data:nav.map(r=>r.total_nav_bil),borderColor:'#003087',
-      backgroundColor:'rgba(0,48,135,0.06)',borderWidth:2.5,
-      pointRadius:4,pointBackgroundColor:'#003087',fill:true,tension:0.35
-    }]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales}});
   }
 }
 
 async function loadTrading(){
+  const pt=ptype();
   const [kpi,ch,ms,mg]=await Promise.all([
-    sb('trading_kpi','*','id.desc&limit=1'),
-    sb('trading_channel','*','gtgd_bil.desc'),
-    sb('market_share','*','gtgd_bil.desc'),
-    sb('margin_trend','*','month_label.asc')
+    sb('kpi_by_period','*',[`period_type=eq.${pt}`,'order=period_key.desc','limit=1']),
+    sb('trading_channel','*',['order=gtgd_bil.desc']),
+    sb('market_share','*',['order=gtgd_bil.desc']),
+    sb('series_by_period','*',[`period_type=eq.${pt}`,'order=period_key.asc',`metric=in.(margin_normal,margin_3b,margin_ut)`])
   ]);
 
   if(kpi[0]){
@@ -441,10 +507,12 @@ async function loadTrading(){
   }
 
   if(mg.length){
-    mkChart('c-margin',{type:'bar',data:{labels:mg.map(r=>r.month_label),datasets:[
-      {label:'Thường',data:mg.map(r=>r.normal_bil),backgroundColor:'#003087',borderRadius:2},
-      {label:'3 bên', data:mg.map(r=>r.m3b_bil),   backgroundColor:'#0057B8',borderRadius:2},
-      {label:'Ứng trước',data:mg.map(r=>r.ut_bil),  backgroundColor:'#F5A623',borderRadius:2}
+    const labels=[...new Set(mg.map(r=>r.dimension))].sort();
+    const get=(metric)=>labels.map(l=>{ const r=mg.find(x=>x.metric===metric&&x.dimension===l); return r?r.value_num:0; });
+    mkChart('c-margin',{type:'bar',data:{labels,datasets:[
+      {label:'Thường',data:get('margin_normal'),backgroundColor:'#003087',borderRadius:2},
+      {label:'3 bên', data:get('margin_3b'),    backgroundColor:'#0057B8',borderRadius:2},
+      {label:'Ứng trước',data:get('margin_ut'), backgroundColor:'#F5A623',borderRadius:2}
     ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
       scales:{x:{...scales.x,stacked:true},y:{...scales.y,stacked:true}}}});
   }
@@ -452,10 +520,10 @@ async function loadTrading(){
 
 async function loadBroker(){
   const [kpi,t10,bc,bt]=await Promise.all([
-    sb('broker_kpi','*','id.desc&limit=1'),
-    sb('broker_top10','*','total_revenue_mil.desc&limit=10'),
-    sb('broker_center','*','active_kh.desc'),
-    sb('broker_type','*','new_kh.desc')
+    sb('broker_kpi','*',['order=id.desc','limit=1']),
+    sb('broker_top10','*',['order=total_revenue_mil.desc','limit=10']),
+    sb('broker_center','*',['order=active_kh.desc']),
+    sb('broker_type','*',['order=new_kh.desc'])
   ]);
 
   if(kpi[0]){
@@ -468,8 +536,7 @@ async function loadBroker(){
   if(t10.length){
     mkChart('c-broker-top10',{type:'bar',indexAxis:'y',
       data:{labels:t10.map(r=>r.broker_name||r.broker_id),
-        datasets:[{data:t10.map(r=>r.total_revenue_mil),
-          backgroundColor:'#003087',borderRadius:3,barThickness:18}]},
+        datasets:[{data:t10.map(r=>r.total_revenue_mil),backgroundColor:'#003087',borderRadius:3,barThickness:18}]},
       options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
         scales:{x:scales.x,y:{grid:{display:false},ticks:{color:'#5E6C84',font:{size:11}}}}}});
   }
@@ -488,51 +555,13 @@ async function loadBroker(){
   }
 }
 
-
-const FILTER_LABELS = {week:'Tuần hiện tại', month:'Tháng hiện tại', year:'Năm tài chính 2025-2026'};
-let currentFilter = 'week';
-
-function setFilter(f, el){
-  currentFilter = f;
-  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
-  el.classList.add('active');
-  document.getElementById('filter-label').textContent = FILTER_LABELS[f];
-  Object.keys(loaded).forEach(k=>delete loaded[k]);
-  const activeTab = document.querySelector('.tab.active');
-  const tabName = activeTab.getAttribute('onclick').match(/\'(.*?)\'/)[1];
-  switchTab(tabName, activeTab);
-}
-
-async function loadTradingKpiOverview(){
-  const [tkpi, ms] = await Promise.all([
-    sb('trading_kpi','*','id.desc&limit=1'),
-    sb('market_share','*','gtgd_bil.desc')
-  ]);
-  if(tkpi[0]){
-    const k=tkpi[0];
-    document.getElementById('ov-gtgd').textContent=fmt(k.gtgd_bil);
-    document.getElementById('ov-fee').textContent=fmt(k.fee_mil,0);
-    document.getElementById('ov-deriv-fee').textContent=fmt(k.deriv_fee_mil,0);
-  }
-  if(ms.length){
-    const total=ms.find(r=>r.entity==='TOTAL_MARKET');
-    const shs=ms.find(r=>r.entity==='SHS');
-    if(total&&shs&&total.gtgd_bil>0){
-      const pct=(shs.gtgd_bil/total.gtgd_bil*100).toFixed(2);
-      document.getElementById('ov-market-share').textContent=pct+'%';
-      const rank=ms.filter(r=>r.entity!=='TOTAL_MARKET').sort((a,b)=>b.gtgd_bil-a.gtgd_bil).findIndex(r=>r.entity==='SHS')+1;
-      document.getElementById('ov-market-rank').textContent='xếp hạng #'+rank+' thị trường';
-    }
-  }
-}
-
 const loaded={};
 async function switchTab(name,el){
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
   ['overview','trading','broker'].forEach(t=>{
-    const el=document.getElementById('tab-'+t);
-    if(el)el.classList.add('hidden');
+    const e=document.getElementById('tab-'+t);
+    if(e)e.classList.add('hidden');
   });
   document.getElementById('loading-state').classList.remove('hidden');
   try{
