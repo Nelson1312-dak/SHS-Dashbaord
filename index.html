@@ -180,8 +180,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;ba
 <div class="filter-bar" style="background:#fff;border-bottom:1px solid var(--gray-200);padding:10px 28px;display:flex;align-items:center;gap:8px">
   <span style="font-size:12px;color:var(--gray-600);font-weight:500;margin-right:4px">Kỳ báo cáo:</span>
   <div style="display:flex;gap:4px" id="filter-btns">
-    <button class="filter-btn active" onclick="setFilter('week',this)">Tuần</button>
+    <button class="filter-btn" onclick="setFilter('week',this)">Tuần</button>
     <button class="filter-btn" onclick="setFilter('month',this)">Tháng</button>
+    <button class="filter-btn active" onclick="setFilter('quarter',this)">Quý</button>
     <button class="filter-btn" onclick="setFilter('year',this)">Năm tài chính</button>
   </div>
   <span style="font-size:12px;color:var(--gray-400);margin-left:8px" id="filter-label">Tuần hiện tại</span>
@@ -352,9 +353,15 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 
 const PALETTE=['#003087','#0057B8','#00875A','#F5A623','#DE350B','#7c3aed','#0891b2','#be185d'];
 const charts={};
-let currentFilter='month';
+let currentFilter='quarter';
 
-const FILTER_LABELS={week:'Tuần hiện tại',month:'Tháng hiện tại',year:'Năm tài chính 2026'};
+const FILTER_LABELS={week:'Tuần hiện tại',month:'Tháng hiện tại',quarter:getQuarterLabel(),year:'Năm tài chính 2026'};
+
+function getQuarterLabel(){
+  const m=new Date().getMonth()+1;
+  const q=Math.ceil(m/3);
+  return `Q${q}/${new Date().getFullYear()}`;
+}
 
 function setFilter(f,el){
   currentFilter=f;
@@ -374,7 +381,7 @@ async function sb(table,select='*',filters=[]){
   return r.json();
 }
 
-function ptype(){ return currentFilter==='year'?'fiscal_year':currentFilter; }
+function ptype(){ if(currentFilter==='year') return 'fiscal_year'; if(currentFilter==='quarter') return 'quarter'; return currentFilter; }
 
 function fmt(v,d=1){
   if(v==null||v==='')return'—';
