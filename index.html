@@ -371,7 +371,11 @@ const charts={};
 let currentFilter='quarter';
 let dateFrom='', dateTo='';
 
-function isoDate(d){ return d.toISOString().slice(0,10); }
+function isoDate(d){
+  // dùng local date tránh lệch múi giờ UTC+7
+  const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
 
 function getPeriodRange(f){
   const now=new Date();
@@ -461,6 +465,13 @@ function msDateFilters(){
   if(dateTo)   f.push(`trading_date=lte.${dateTo}`);
   return f;
 }
+function periodKey(dateStr){ return dateStr ? dateStr.slice(0,7) : ''; }
+function seriesDateFilters(){
+  const f=[];
+  if(dateFrom) f.push(`period_key=gte.${periodKey(dateFrom)}`);
+  if(dateTo)   f.push(`period_key=lte.${periodKey(dateTo)}`);
+  return f;
+}
 function fmt(v,d=1){
   if(v==null||v==='')return'—';
   const n=Number(v);
@@ -478,10 +489,9 @@ const scales={
   y:{grid:{color:'rgba(0,0,0,0.04)'},ticks:{color:'#9EA8BC',font:{size:11}}}
 };
 async function loadOverview(){
-  const pt=ptype();
   const [kpi,series,ms,msDailyAll]=await Promise.all([
-    sb('kpi_by_period','*',[`period_type=eq.${pt}`,'order=period_key.desc','limit=1']),
-    sb('series_by_period','*',[`period_type=eq.${pt}`,'order=period_key.asc']),
+    sb('kpi_by_period','*',[`period_type=eq.month`,...seriesDateFilters(),'order=period_key.desc','limit=1']),
+    sb('series_by_period','*',[`period_type=eq.month`,...seriesDateFilters(),'order=period_key.asc']),
     sb('market_share','*',['order=gtgd_bil.desc']),
     sb('market_share_daily','*',[...msDateFilters(),'order=trading_date.asc'])
   ]);
@@ -782,12 +792,11 @@ async function loadOverview(){
   }
 }
 async function loadTrading(){
-  const pt=ptype();
   const [kpi,ch,ms,mg,shsDaily]=await Promise.all([
-    sb('kpi_by_period','*',[`period_type=eq.${pt}`,'order=period_key.desc','limit=1']),
+    sb('kpi_by_period','*',[`period_type=eq.month`,...seriesDateFilters(),'order=period_key.desc','limit=1']),
     sb('trading_channel','*',['order=gtgd_bil.desc']),
     sb('market_share','*',['order=gtgd_bil.desc']),
-    sb('series_by_period','*',[`period_type=eq.${pt}`,'order=period_key.asc',`metric=in.(margin_normal,margin_3b,margin_ut)`]),
+    sb('series_by_period','*',[`period_type=eq.month`,...seriesDateFilters(),'order=period_key.asc',`metric=in.(margin_normal,margin_3b,margin_ut)`]),
     sb('market_share_daily','*',[`entity=eq.SHS`,...msDateFilters(),'order=trading_date.desc','limit=1'])
   ]);
   // Them SHS vao market_share snapshot neu chua co
