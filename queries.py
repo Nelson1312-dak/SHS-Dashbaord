@@ -154,13 +154,16 @@ def trading_kpi(engine, date_from=None, date_to=None, **kwargs):
     dt = date_to   or _today()
     sql = """
         SELECT
-            ROUND(SUM(t.TRADING_VALUE)     / 1e9, 1) AS gtgd_bil,
-            ROUND(SUM(t.TRADING_FEE_NET)   / 1e6, 0) AS fee_mil,
-            SUM(t.DERIVATIVE_VOL)                      AS derivative_vol
+            ROUND(SUM(t.TRADING_VALUE)       / 1e9, 1) AS gtgd_bil,
+            ROUND(SUM(t.TRADING_VALUE_STOCK) / 1e9, 1) AS trading_value_stock,
+            ROUND(SUM(t.TRADING_VALUE_BOND)  / 1e9, 1) AS trading_value_bond,
+            ROUND(SUM(t.TRADING_FEE_NET)     / 1e6, 0) AS fee_mil,
+            SUM(t.DERIVATIVE_VOL)                       AS derivative_vol
         FROM FACT_DAILY_CUST_TRADING_MGMT t
         WHERE TRUNC(t.DT) BETWEEN :df AND :dt
     """
-    res = run(engine, sql, {"df": df, "dt": dt}).iloc[0].to_dict()
+    raw = run(engine, sql, {"df": df, "dt": dt}).iloc[0].to_dict()
+    res = {k.lower(): v for k, v in raw.items()}
     m_res = margin_interest_kpi(engine, date_from=df, date_to=dt)
     res["deriv_fee_mil"] = m_res.get("margin_interest_mil") or 0
     return res
