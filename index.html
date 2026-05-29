@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Báo cáo Kinh doanh SHS</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --shs-navy:#003087;
+  --shs-blue:#0057B8;
+  --shs-light:#E8F0FB;
+  --shs-gold:#F5A623;
+  --shs-green:#00875A;
+  --shs-red:#DE350B;
+  --gray-50:#F7F8FA;
+  --gray-100:#EEF0F4;
+  --gray-200:#DDE1E9;
+  --gray-400:#9EA8BC;
+  --gray-600:#5E6C84;
+  --gray-900:#172B4D;
+  --radius-sm:6px;
+  --radius-md:10px;
+  --radius-lg:14px;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;background:var(--gray-50);color:var(--gray-900);font-size:14px;min-height:100vh}
+/* ── Topbar ── */
+.topbar{background:var(--shs-navy);padding:0 28px;display:flex;align-items:stretch;justify-content:space-between;height:56px}
+.topbar-left{display:flex;align-items:center;gap:16px}
+.shs-logo{display:flex;align-items:center;gap:10px;text-decoration:none}
+.shs-logo-mark{display:flex;align-items:center;justify-content:center}
+.shs-logo-text{color:#fff;font-size:15px;font-weight:600;letter-spacing:.3px}
+.shs-logo-sub{color:rgba(255,255,255,0.55);font-size:11px;font-weight:400;display:block;margin-top:-2px}
+.topbar-divider{width:1px;height:28px;background:rgba(255,255,255,0.2)}
+.topbar-title{color:rgba(255,255,255,0.85);font-size:13px;font-weight:500}
+.topbar-right{display:flex;align-items:center;gap:12px}
+.sync-info{display:flex;align-items:center;gap:6px;color:rgba(255,255,255,0.6);font-size:12px}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:#00C88A}
+.refresh-btn{background:rgba(255,255,255,0.12);color:#fff;border:1px solid rgba(255,255,255,0.2);padding:6px 14px;border-radius:var(--radius-sm);cursor:pointer;font-size:12px;font-weight:500;display:flex;align-items:center;gap:6px;transition:background .15s}
+.refresh-btn:hover{background:rgba(255,255,255,0.2)}
+/* ── Tabs ── */
+.tabs{background:#fff;border-bottom:1px solid var(--gray-200);padding:0 28px;display:flex;gap:2px}
+.tab{padding:14px 20px;cursor:pointer;font-size:13px;font-weight:500;border-bottom:2.5px solid transparent;color:var(--gray-600);transition:all .15s;display:flex;align-items:center;gap:7px}
+.tab:hover{color:var(--shs-blue)}
+.tab.active{border-bottom-color:var(--shs-navy);color:var(--shs-navy)}
+.tab-icon{font-size:16px}
+/* ── Layout ── */
+.content{padding:24px 28px;max-width:1440px;margin:0 auto}
+.section-label{font-size:11px;font-weight:600;color:var(--gray-400);text-transform:uppercase;letter-spacing:.08em;margin:24px 0 12px;display:flex;align-items:center;gap:8px}
+.section-label::after{content:'';flex:1;height:1px;background:var(--gray-100)}
+/* ── KPI Cards ── */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:4px}
+.kpi{background:#fff;border-radius:var(--radius-md);padding:16px 18px;border:1px solid var(--gray-100);position:relative;overflow:hidden}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--shs-navy)}
+.kpi-label{font-size:11px;color:var(--gray-600);margin-bottom:8px;font-weight:500;text-transform:uppercase;letter-spacing:.05em}
+.kpi-value{font-size:26px;font-weight:700;color:var(--gray-900);line-height:1;letter-spacing:-0.5px}
+.kpi-sub{font-size:12px;color:var(--gray-400);margin-top:5px;display:flex;align-items:center;gap:4px}
+.badge{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:600;padding:2px 7px;border-radius:4px}
+.badge-up{background:#E3FCEF;color:#006644}
+.badge-down{background:#FFEBE6;color:#BF2600}
+/* ── Chart cards ── */
+.chart-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.chart-card{background:#fff;border-radius:var(--radius-lg);padding:18px 20px;border:1px solid var(--gray-100)}
+.chart-card.full{grid-column:1/-1}
+.chart-card.w3{grid-column:span 1}
+.chart-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.chart-title{font-size:13px;font-weight:600;color:var(--gray-900)}
+.chart-badge{font-size:11px;color:var(--gray-400);background:var(--gray-100);padding:3px 8px;border-radius:4px}
+.chart-summary{font-size:12px;color:var(--gray-600);margin-top:-6px;margin-bottom:12px;display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.chart-summary .val{font-weight:700;color:var(--shs-navy);font-size:14px}
+.chart-summary .val.blue{color:var(--shs-blue)}
+.chart-summary .val.green{color:var(--shs-green)}
+.chart-summary .val.red{color:var(--shs-red)}
+.chart-summary .lbl{color:var(--gray-600)}
+.chart-summary .sep{color:var(--gray-200);margin:0 6px}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:11px;color:var(--gray-600)}
+.leg{display:flex;align-items:center;gap:5px}
+.leg-dot{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+/* ── States ── */
+.loading-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 20px;gap:16px}
+.spinner{width:36px;height:36px;border:3px solid var(--gray-200);border-top-color:var(--shs-navy);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{color:var(--gray-600);font-size:14px}
+.error-box{background:#FFEBE6;border:1px solid #FFBDAD;border-radius:var(--radius-md);padding:16px 20px;color:#BF2600;margin:20px 0;font-size:13px}
+.hidden{display:none!important}
+/* ── Empty state ── */
+.empty{display:flex;flex-direction:column;align-items:center;padding:40px 20px;color:var(--gray-400);gap:10px;font-size:13px}
+.filter-btn{background:transparent;border:1px solid var(--gray-200);border-radius:var(--radius-sm);padding:5px 14px;font-size:12px;font-weight:500;color:var(--gray-600);cursor:pointer;transition:all .15s}
+.filter-btn:hover{border-color:var(--shs-navy);color:var(--shs-navy)}
+.filter-btn.active{background:var(--shs-navy);border-color:var(--shs-navy);color:#fff}
+@media(max-width:900px){
+  .chart-row{grid-template-columns:1fr}
+  .kpi-grid{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:600px){
+  .topbar{padding:0 14px;height:auto;min-height:52px;flex-wrap:wrap;gap:6px;padding-top:8px;padding-bottom:8px}
+  .topbar-left{flex-wrap:wrap;gap:10px}
+  .topbar-divider{display:none}
+  .topbar-title{display:none}
+  .shs-logo-sub{display:none}
+  .topbar-right{gap:8px}
+  .sync-info span{max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px}
+  .refresh-btn{padding:5px 10px;font-size:11px}
+  .tabs{padding:0 14px;overflow-x:auto;scrollbar-width:none}
+  .tabs::-webkit-scrollbar{display:none}
+  .tab{padding:10px 14px;font-size:12px;white-space:nowrap}
+  .tab svg{display:none}
+  .filter-bar{padding:8px 14px;flex-wrap:wrap;gap:6px}
+  .filter-btn{padding:5px 10px;font-size:11px}
+  #filter-label{display:none}
+  .content{padding:14px}
+  .section-label{margin:16px 0 10px}
+  .kpi-grid{grid-template-columns:repeat(2,1fr);gap:8px}
+  .kpi{padding:12px 14px}
+  .kpi-value{font-size:20px}
+  .kpi-label{font-size:10px}
+  .kpi-sub{font-size:10px}
+  .chart-row{grid-template-columns:1fr;gap:10px}
+  .chart-card{padding:14px}
+  .chart-title{font-size:12px}
+  .chart-badge{font-size:10px}
+}
+@media(max-width:360px){
+  .kpi-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-left">
+    <a class="shs-logo" href="https://shs.com.vn" target="_blank">
+      <div class="shs-logo-mark">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+          <rect width="32" height="32" rx="6" fill="#fff"/>
+          <text x="16" y="23" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-size="20" font-style="italic" fill="#F5A623">S</text>
+        </svg>
+      </div>
+      <div>
+        <span class="shs-logo-text">Chứng khoán SHS</span>
+        <span class="shs-logo-sub">Sài Gòn – Hà Nội</span>
+      </div>
+    </a>
+    <div class="topbar-divider"></div>
+    <span class="topbar-title">Báo cáo Kinh doanh SHS</span>
+  </div>
+  <div class="topbar-right">
+    <div class="sync-info">
+      <div class="sync-dot"></div>
+      <span id="last-updated">Đang tải...</span>
+    </div>
+    <button class="refresh-btn" onclick="loadAll()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+      Refresh
+    </button>
+  </div>
+</div>
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('overview',this)">
+    <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+    Tổng quan
+  </div>
+  <div class="tab" onclick="switchTab('trading',this)">
+    <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+    Giao dịch
+  </div>
+  <div class="tab" onclick="switchTab('broker',this)">
+    <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+    Môi giới
+  </div>
+</div>
+<div class="filter-bar" style="background:#fff;border-bottom:1px solid var(--gray-200);padding:10px 28px;display:flex;align-items:center;gap:8px">
+  <span style="font-size:12px;color:var(--gray-600);font-weight:500;margin-right:4px">Kỳ báo cáo:</span>
+  <div style="display:flex;gap:4px" id="filter-btns">
+    <button class="filter-btn" onclick="setFilter('week',this)">Tuần</button>
+    <button class="filter-btn" onclick="setFilter('month',this)">Tháng</button>
+    <button class="filter-btn active" onclick="setFilter('quarter',this)">Quý</button>
+    <button class="filter-btn" onclick="setFilter('year',this)">Năm tài chính</button>
+  </div>
+  <span style="font-size:12px;color:var(--gray-400);margin-left:8px" id="filter-label">Tuần hiện tại</span>
+</div>
+<div class="content">
+  <div id="loading-state" class="loading-wrap">
+    <div class="spinner"></div>
+    <span class="loading-text">Đang kết nối Supabase...</span>
+  </div>
+  <div id="error-box" class="error-box hidden"></div>
+  <!-- OVERVIEW -->
+  <div id="tab-overview" class="hidden">
+    <div class="section-label">Quy mô khách hàng</div>
+    <div class="kpi-grid">
+      <div class="kpi">
+        <div class="kpi-label">Tổng khách hàng</div>
+        <div class="kpi-value" id="kpi-total">—</div>
+        <div class="kpi-sub">tài khoản</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">KH Active</div>
+        <div class="kpi-value" id="kpi-active">—</div>
+        <div class="kpi-sub" id="kpi-active-rate">tỉ lệ —</div>
+      </div>
+      <div class="kpi" style="--shs-navy:#00875A">
+        <div class="kpi-label">Tổng NAV</div>
+        <div class="kpi-value" id="kpi-nav">—</div>
+        <div class="kpi-sub">tỉ VND</div>
+      </div>
+      <div class="kpi" style="--shs-navy:#0057B8">
+        <div class="kpi-label">Tổng AUM</div>
+        <div class="kpi-value" id="kpi-aum">—</div>
+        <div class="kpi-sub">tỉ VND</div>
+      </div>
+      <div class="kpi" style="--shs-navy:#F5A623">
+        <div class="kpi-label">Dư nợ Margin</div>
+        <div class="kpi-value" id="kpi-margin">—</div>
+        <div class="kpi-sub">tỉ VND</div>
+      </div>
+    </div>
+    <div class="section-label">Giao dịch cơ sở & Thị phần</div>
+    <div class="kpi-grid" id="trading-kpi-overview">
+      <div class="kpi" style="--shs-navy:#0057B8"><div class="kpi-label">GTGD cơ sở</div><div class="kpi-value" id="ov-gtgd">—</div><div class="kpi-sub">tỉ VND</div></div>
+      <div class="kpi" style="--shs-navy:#7B61FF"><div class="kpi-label">GTGD Trái phiếu</div><div class="kpi-value" id="ov-gtgd-bond">—</div><div class="kpi-sub">tỉ VND</div></div>
+      <div class="kpi" style="--shs-navy:#00875A"><div class="kpi-label">Phí GD cơ sở net</div><div class="kpi-value" id="ov-fee">—</div><div class="kpi-sub">tỉ VND</div></div>
+      <div class="kpi" style="--shs-navy:#F5A623"><div class="kpi-label">Lãi margin net</div><div class="kpi-value" id="ov-deriv-fee">—</div><div class="kpi-sub">tỉ VND · lãi thực thu</div></div>
+      <div class="kpi" style="--shs-navy:#003087;position:relative">
+        <div class="kpi-label">Thị phần GD cơ sở</div>
+        <div class="kpi-value" id="ov-market-share">—</div>
+        <div class="kpi-sub" id="ov-market-rank">xếp hạng —</div>
+      </div>
+    </div>
+    <div class="section-label">Tăng trưởng</div>
+    <div class="chart-row">
+      <div class="chart-card">
+        <div class="chart-header">
+          <span class="chart-title">Mở tài khoản mới theo Chi nhánh</span>
+          <span class="chart-badge">6 tháng</span>
+        </div>
+        <div class="chart-summary" id="sum-open">—</div>
+        <div class="legend" id="legend-open" style="margin-bottom:12px"></div>
+        <div style="position:relative;height:210px"><canvas id="c-open"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <span class="chart-title">Tỉ lệ KH active</span>
+          <span class="chart-badge">6 tháng</span>
+        </div>
+        <div class="chart-summary" id="sum-active-rate">—</div>
+        <div style="position:relative;height:230px"><canvas id="c-active-rate"></canvas></div>
+      </div>
+    </div>
+    <div class="chart-row">
+      <div class="chart-card full">
+        <div class="chart-header">
+          <span class="chart-title">Thị phần giao dịch cơ sở theo ngày</span>
+          <span class="chart-badge" id="badge-market-share-daily">Hàng ngày</span>
+        </div>
+        <div class="chart-summary" id="sum-market-share-daily">—</div>
+        <div style="position:relative;height:230px"><canvas id="c-market-share-daily"></canvas></div>
+      </div>
+    </div>
+    <div class="chart-row">
+      <div class="chart-card full">
+        <div class="chart-header">
+          <span class="chart-title">Net cash flow theo tháng</span>
+          <span class="chart-badge">tỉ VND</span>
+        </div>
+        <div class="chart-summary" id="sum-cashflow">—</div>
+        <div class="legend" style="margin-bottom:12px">
+          <span class="leg"><span class="leg-dot" style="background:#00875A"></span>Cash in</span>
+          <span class="leg"><span class="leg-dot" style="background:#DE350B"></span>Cash out</span>
+          <span class="leg"><span class="leg-dot" style="background:var(--shs-navy)"></span>Net</span>
+        </div>
+        <div style="position:relative;height:190px"><canvas id="c-cashflow"></canvas></div>
+        <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--gray-100)">
+          <div style="font-size:11px;font-weight:600;color:var(--gray-400);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Chênh lệch Net (cash in − cash out)</div>
+          <div style="position:relative;height:90px"><canvas id="c-cashflow-net"></canvas></div>
+        </div>
+      </div>
+    </div>
+    <div class="chart-row">
+      <div class="chart-card full">
+        <div class="chart-header">
+          <span class="chart-title">Tổng NAV cuối tháng</span>
+          <span class="chart-badge">tỉ VND</span>
+        </div>
+        <div class="chart-summary" id="sum-nav">—</div>
+        <div style="position:relative;height:170px"><canvas id="c-nav"></canvas></div>
+      </div>
+    </div>
+  </div>
+  <!-- TRADING -->
+  <div id="tab-trading" class="hidden">
+    <div class="section-label">Giao dịch tháng hiện tại</div>
+    <div class="kpi-grid">
+      <div class="kpi"><div class="kpi-label">GTGD cổ phiếu</div><div class="kpi-value" id="kpi-gtgd">—</div><div class="kpi-sub">tỉ VND</div></div>
+      <div class="kpi" style="--shs-navy:#00875A"><div class="kpi-label">Phí GD net</div><div class="kpi-value" id="kpi-fee">—</div><div class="kpi-sub">tỉ VND</div></div>
+      <div class="kpi" style="--shs-navy:#0057B8"><div class="kpi-label">KL phái sinh</div><div class="kpi-value" id="kpi-deriv-vol">—</div><div class="kpi-sub">hợp đồng</div></div>
+      <div class="kpi" style="--shs-navy:#F5A623"><div class="kpi-label">Lãi margin thực thu</div><div class="kpi-value" id="kpi-deriv-fee">—</div><div class="kpi-sub">tỉ VND</div></div>
+    </div>
+    <div class="section-label">Phân tích kênh & thị phần</div>
+    <div class="chart-row">
+      <div class="chart-card">
+        <div class="chart-header"><span class="chart-title">GTGD theo kênh</span><span class="chart-badge">tháng này</span></div>
+        <div class="chart-summary" id="sum-channel-gtgd">—</div>
+        <div style="position:relative;height:220px"><canvas id="c-channel-gtgd"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header"><span class="chart-title">Phí bình quân theo kênh</span><span class="chart-badge">%</span></div>
+        <div class="chart-summary" id="sum-channel-fee">—</div>
+        <div style="position:relative;height:220px"><canvas id="c-channel-fee"></canvas></div>
+      </div>
+    </div>
+    <div class="chart-row">
+      <div class="chart-card">
+        <div class="chart-header"><span class="chart-title">Thị phần GTGD cổ phiếu</span><span class="chart-badge">top CK</span></div>
+        <div class="chart-summary" id="sum-market">—</div>
+        <div style="position:relative;height:220px"><canvas id="c-market"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header"><span class="chart-title">Dư nợ margin theo loại</span><span class="chart-badge">tỉ VND</span></div>
+        <div class="chart-summary" id="sum-margin">—</div>
+        <div class="legend" style="margin-bottom:12px">
+          <span class="leg"><span class="leg-dot" style="background:var(--shs-navy)"></span>Thường</span>
+          <span class="leg"><span class="leg-dot" style="background:#0057B8"></span>3 bên</span>
+          <span class="leg"><span class="leg-dot" style="background:#F5A623"></span>Ứng trước</span>
+        </div>
+        <div style="position:relative;height:190px"><canvas id="c-margin"></canvas></div>
+      </div>
+    </div>
+  </div>
+  <!-- BROKER -->
+  <div id="tab-broker" class="hidden">
+    <div class="section-label">Hiệu suất môi giới</div>
+    <div class="kpi-grid">
+      <div class="kpi"><div class="kpi-label">Tổng môi giới</div><div class="kpi-value" id="kpi-broker-total">—</div><div class="kpi-sub">đang hoạt động</div></div>
+      <div class="kpi" style="--shs-navy:#0057B8"><div class="kpi-label">TB KH / MG</div><div class="kpi-value" id="kpi-broker-kh">—</div><div class="kpi-sub">KH / môi giới</div></div>
+      <div class="kpi" style="--shs-navy:#00875A"><div class="kpi-label">TB NAV / MG</div><div class="kpi-value" id="kpi-broker-nav">—</div><div class="kpi-sub">tỉ VND</div></div>
+    </div>
+    <div class="section-label">Xếp hạng & phân bổ</div>
+    <div class="chart-row">
+      <div class="chart-card full">
+        <div class="chart-header"><span class="chart-title">Top 10 môi giới theo doanh thu</span><span class="chart-badge">triệu VND</span></div>
+        <div class="chart-summary" id="sum-broker-top10">—</div>
+        <div style="position:relative;height:290px"><canvas id="c-broker-top10"></canvas></div>
+      </div>
+    </div>
+    <div class="chart-row">
+      <div class="chart-card">
+        <div class="chart-header"><span class="chart-title">KH active theo trung tâm</span></div>
+        <div class="chart-summary" id="sum-broker-center">—</div>
+        <div style="position:relative;height:220px"><canvas id="c-broker-center"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header"><span class="chart-title">KH mở mới theo loại MG</span></div>
+        <div class="chart-summary" id="sum-broker-type">—</div>
+        <div style="position:relative;height:220px"><canvas id="c-broker-type"></canvas></div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+const SUPABASE_URL = 'https://zwhqitghsrgmmcthbivh.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp3aHFpdGdoc3JnbW1jdGhiaXZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3OTM3MjYsImV4cCI6MjA5NDM2OTcyNn0.E4Mv8NR-u9XLrgA-vLOp4bsXDKt2PgjbewbFCbFgvAk';
+const PALETTE=['#003087','#0057B8','#00875A','#F5A623','#DE350B','#7c3aed','#0891b2','#be185d'];
+const charts={};
+let currentFilter='quarter';
+const FILTER_LABELS={week:'Tuần hiện tại',month:'Tháng hiện tại',quarter:getQuarterLabel(),year:'Năm tài chính 2026'};
+function getQuarterLabel(){
+  const m=new Date().getMonth()+1;
+  const q=Math.ceil(m/3);
+  return `Q${q}/${new Date().getFullYear()}`;
+}
+function setFilter(f,el){
+  currentFilter=f;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('filter-label').textContent=FILTER_LABELS[f==='year'?'year':f];
+  Object.keys(loaded).forEach(k=>delete loaded[k]);
+  const activeTab=document.querySelector('.tab.active');
+  const match=activeTab.getAttribute('onclick').match(/'([^']+)'/);
+  if(match) switchTab(match[1],activeTab);
+}
+async function sb(table,select='*',filters=[]){
+  let url=`${SUPABASE_URL}/rest/v1/${table}?select=${select}`;
+  filters.forEach(f=>url+=`&${f}`);
+  const r=await fetch(url,{headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`}});
+  return r.json();
+}
+function ptype(){ if(currentFilter==='year') return 'fiscal_year'; if(currentFilter==='quarter') return 'quarter'; return currentFilter; }
+function fmt(v,d=1){
+  if(v==null||v==='')return'—';
+  const n=Number(v);
+  if(isNaN(n))return'—';
+  return n.toLocaleString('vi-VN',{minimumFractionDigits:d,maximumFractionDigits:d});
+}
+function mkChart(id,config){
+  if(charts[id])charts[id].destroy();
+  const el=document.getElementById(id);
+  if(!el)return;
+  charts[id]=new Chart(el,config);
+}
+const scales={
+  x:{grid:{color:'rgba(0,0,0,0.04)'},ticks:{color:'#9EA8BC',font:{size:11}}},
+  y:{grid:{color:'rgba(0,0,0,0.04)'},ticks:{color:'#9EA8BC',font:{size:11}}}
+};
+async function loadOverview(){
+  const pt=ptype();
+  const [kpi,series,ms,msDailyAll]=await Promise.all([
+    sb('kpi_by_period','*',[`period_type=eq.${pt}`,'order=period_key.desc','limit=1']),
+    sb('series_by_period','*',[`period_type=eq.${pt}`,'order=period_key.asc']),
+    sb('market_share','*',['order=gtgd_bil.desc']),
+    sb('market_share_daily','*',['order=trading_date.asc'])
+  ]);
+  // Tach SHS va tong san tu market_share_daily
+  const msDaily = msDailyAll.filter(r => r.entity === 'SHS');
+  const msDailyHose = msDailyAll.filter(r => r.entity === 'HOSE Total');
+  const msDailyHnx = msDailyAll.filter(r => r.entity === 'HNX Total');
+  const msDailyUpcom = msDailyAll.filter(r => r.entity === 'UPCOM Total');
+  // Tinh market_share_pct phia client neu chua co
+  msDaily.forEach(shs => {
+    if (shs.market_share_pct == null && shs.gtgd_bil > 0) {
+      const dt = shs.trading_date;
+      const hose = msDailyHose.find(r => r.trading_date === dt);
+      const hnx = msDailyHnx.find(r => r.trading_date === dt);
+      const upcom = msDailyUpcom.find(r => r.trading_date === dt);
+      const totalMarket = (hose ? hose.gtgd_bil : 0) + (hnx ? hnx.gtgd_bil : 0) + (upcom ? upcom.gtgd_bil : 0);
+      if (totalMarket > 0) {
+        shs.market_share_pct = Math.round(shs.gtgd_bil / totalMarket * 100 * 10000) / 10000;
+      }
+    }
+  });
+  if(kpi[0]){
+    const k=kpi[0];
+    document.getElementById('kpi-total').textContent=fmt(k.total_customer,0);
+    document.getElementById('kpi-active').textContent=fmt(k.active_customer,0);
+    const rate=k.total_customer>0?(k.active_customer/k.total_customer*100).toFixed(1)+'%':'—';
+    document.getElementById('kpi-active-rate').textContent='tỉ lệ '+rate;
+    document.getElementById('kpi-nav').textContent=fmt(k.total_nav_bil);
+    document.getElementById('kpi-aum').textContent=fmt(k.total_aum_bil);
+    document.getElementById('kpi-margin').textContent=fmt(k.total_margin_bil);
+    document.getElementById('ov-gtgd').textContent=fmt(k.TRADING_VALUE_STOCK);
+    document.getElementById('ov-gtgd-bond').textContent=fmt(k.TRADING_VALUE_BOND);
+    document.getElementById('ov-fee').textContent=fmt(k.fee_mil/1000,3);
+    document.getElementById('ov-deriv-fee').textContent=fmt(k.deriv_fee_mil/1000,3);
+    if(k.market_share_pct!=null){
+      document.getElementById('ov-market-share').textContent=k.market_share_pct+'%';
+      document.getElementById('ov-market-rank').textContent=k.market_rank?'xếp hạng #'+k.market_rank:'';
+    } else if(msDaily.length) {
+      // Tinh thi phan binh quan tu market_share_daily
+      const validRows = msDaily.filter(r => r.market_share_pct != null);
+      if(validRows.length) {
+        const avgShare = validRows.reduce((s,r) => s + r.market_share_pct, 0) / validRows.length;
+        document.getElementById('ov-market-share').textContent = avgShare.toFixed(2) + '%';
+        document.getElementById('ov-market-rank').textContent = 'bình quân kỳ';
+      }
+    }
+    }
+  }
+  // Charts from series
+  const navSeries=series.filter(r=>r.metric==='nav');
+  if(navSeries.length){
+    const latestRow = navSeries[navSeries.length - 1];
+    const latestMonth = latestRow.dimension;
+    const latestNav = latestRow.value_num;
+    const subNavEl = document.getElementById('sum-nav');
+    if (subNavEl) {
+      subNavEl.innerHTML = `<span class="val">${fmt(latestNav, 1)}</span> <span class="lbl">tỉ VND cuối kỳ (${latestMonth})</span>`;
+    }
+
+    const labels=[...new Set(navSeries.map(r=>r.dimension))];
+    mkChart('c-nav',{type:'line',data:{labels,datasets:[{
+      data:labels.map(l=>{ const r=navSeries.find(x=>x.dimension===l); return r?r.value_num:0; }),
+      borderColor:'#003087',backgroundColor:'rgba(0,48,135,0.06)',borderWidth:2.5,
+      pointRadius:4,pointBackgroundColor:'#003087',fill:true,tension:0.35
+    }]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales}});
+  }
+  const naSeries=series.filter(r=>r.metric==='new_accounts');
+  if(naSeries.length){
+    const totalNewAccounts = naSeries.reduce((sum, r) => sum + (r.value_num || 0), 0);
+    const allDims=[...new Set(naSeries.map(r=>r.dimension))];
+    const months=[...new Set(allDims.map(d=>d.split('|')[0]))].sort();
+    const channels=[...new Set(allDims.map(d=>d.split('|')[1]))];
+    const latestMonth = months[months.length - 1];
+    const latestMonthNewAccounts = naSeries
+      .filter(r => r.dimension.startsWith(latestMonth))
+      .reduce((sum, r) => sum + (r.value_num || 0), 0);
+    const subOpenEl = document.getElementById('sum-open');
+    if (subOpenEl) {
+      subOpenEl.innerHTML = `<span class="val">${fmt(totalNewAccounts, 0)}</span> <span class="lbl">tài khoản (Lũy kế)</span><span class="sep">|</span><span class="val">${fmt(latestMonthNewAccounts, 0)}</span> <span class="lbl">mở mới (${latestMonth})</span>`;
+    }
+
+    document.getElementById('legend-open').innerHTML=channels.map((c,i)=>
+      `<span class="leg"><span class="leg-dot" style="background:${PALETTE[i%PALETTE.length]}"></span>${c}</span>`
+    ).join('');
+    mkChart('c-open',{type:'bar',data:{labels:months,datasets:channels.map((ch,i)=>({
+      label:ch,
+      data:months.map(m=>{ const r=naSeries.find(x=>x.dimension===`${m}|${ch}`); return r?r.value_num:0; }),
+      backgroundColor:PALETTE[i%PALETTE.length],borderRadius:3,
+      maxBarThickness:48
+    }))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{...scales.x,stacked:true},y:{...scales.y,stacked:true}}}});
+  }
+  const arSeries=series.filter(r=>r.metric==='active_rate');
+  if(arSeries.length){
+    const latestRow = arSeries[arSeries.length - 1];
+    const latestMonth = latestRow.dimension;
+    const latestRate = latestRow.value_num;
+    const subActiveEl = document.getElementById('sum-active-rate');
+    if (subActiveEl) {
+      subActiveEl.innerHTML = `<span class="val">${fmt(latestRate, 1)}%</span> <span class="lbl">hoạt động (${latestMonth})</span>`;
+    }
+
+    mkChart('c-active-rate',{type:'line',data:{labels:arSeries.map(r=>r.dimension),datasets:[{
+      data:arSeries.map(r=>r.value_num),borderColor:'#003087',
+      backgroundColor:'rgba(0,48,135,0.07)',borderWidth:2.5,
+      pointRadius:4,pointBackgroundColor:'#003087',fill:true,tension:0.35
+    }]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:scales.x,y:{...scales.y,ticks:{callback:v=>v+'%'}}}}});
+  }
+  // Daily market share line chart
+  if(msDaily && msDaily.length){
+    const latestRow = msDaily[msDaily.length - 1];
+    const latestDayShare = latestRow.market_share_pct;
+    const dateParts = latestRow.trading_date.split('-');
+    const latestDayDate = dateParts.length >= 3 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : latestRow.trading_date;
+    let periodShare = 0;
+    if (kpi[0] && kpi[0].market_share_pct != null) {
+      periodShare = kpi[0].market_share_pct;
+    } else {
+      const sum = msDaily.reduce((acc, r) => acc + (r.market_share_pct || 0), 0);
+      periodShare = sum / msDaily.length;
+    }
+    const subMarketDaily = document.getElementById('sum-market-share-daily');
+    if (subMarketDaily) {
+      subMarketDaily.innerHTML = `<span class="val">${fmt(periodShare, 2)}%</span> <span class="lbl">Bình quân kỳ</span><span class="sep">|</span><span class="val">${fmt(latestDayShare, 2)}%</span> <span class="lbl">ngày gần nhất (${latestDayDate})</span>`;
+    }
+
+    const labels = msDaily.map(r => {
+      const parts = r.trading_date.split('-');
+      return parts.length >= 3 ? `${parts[2]}/${parts[1]}` : r.trading_date;
+    });
+    
+    const badgeEl = document.getElementById('badge-market-share-daily');
+    if (badgeEl && msDaily.length >= 2) {
+      const startParts = msDaily[0].trading_date.split('-');
+      const endParts = msDaily[msDaily.length - 1].trading_date.split('-');
+      if (startParts.length >= 3 && endParts.length >= 3) {
+        badgeEl.textContent = `${startParts[2]}/${startParts[1]} - ${endParts[2]}/${endParts[1]}/${endParts[0]}`;
+      }
+    }
+    
+    mkChart('c-market-share-daily',{
+      type:'bar',
+      data:{
+        labels,
+        datasets:[
+          {
+            type:'bar',
+            label:'GTGD SHS (tỉ VND)',
+            data: msDaily.map(r => r.gtgd_bil),
+            backgroundColor: 'rgba(0, 87, 184, 0.22)',
+            borderColor: 'rgba(0, 87, 184, 0.7)',
+            borderWidth: 1,
+            borderRadius: 4,
+            maxBarThickness: 32,
+            yAxisID: 'yBar'
+          },
+          {
+            type:'line',
+            label:'Thị phần (%)',
+            data: msDaily.map(r => r.market_share_pct),
+            borderColor: '#003087',
+            backgroundColor: 'transparent',
+            borderWidth: 2.5,
+            pointRadius: 5,
+            pointHoverRadius: 7,
+            pointBackgroundColor: '#ffffff',
+            pointBorderColor: '#003087',
+            pointBorderWidth: 2.5,
+            fill: false,
+            tension: 0.35,
+            yAxisID: 'yLine'
+          }
+        ]
+      },
+      options:{
+        responsive:true,
+        maintainAspectRatio:false,
+        plugins:{
+          legend:{
+            display:true,
+            position:'top',
+            labels:{
+              font:{size:10},
+              boxWidth:12,
+              usePointStyle:true
+            }
+          },
+          tooltip:{
+            callbacks:{
+              label: ctx => {
+                if (ctx.dataset.yAxisID === 'yBar') {
+                  return ` GTGD SHS: ${ctx.parsed.y.toLocaleString('vi-VN', {minimumFractionDigits:2, maximumFractionDigits:2})} tỉ VND`;
+                } else {
+                  return ` Thị phần: ${ctx.parsed.y.toFixed(3)}%`;
+                }
+              }
+            }
+          }
+        },
+        layout: {
+          padding: {
+            left: 10,
+            right: 15,
+            top: 5,
+            bottom: 5
+          }
+        },
+        scales:{
+          x: scales.x,
+          yBar:{
+            type:'linear',
+            position:'left',
+            grid:{display:false},
+            ticks:{
+              color:'#9EA8BC',
+              font:{size:10},
+              callback:v=>v+' tỉ'
+            },
+            title:{
+              display:true,
+              text:'GTGD SHS (tỉ VND)',
+              color:'#9EA8BC',
+              font:{size:10}
+            },
+            min: 0
+          },
+          yLine:{
+            type:'linear',
+            position:'right',
+            grid:{color:'rgba(0,0,0,0.04)'},
+            ticks:{
+              color:'#9EA8BC',
+              font:{size:10},
+              callback:v=>v+'%'
+            },
+            title:{
+              display:true,
+              text:'Thị phần (%)',
+              color:'#9EA8BC',
+              font:{size:10}
+            }
+          }
+        }
+      }
+    });
+  }
+  const ciSeries=series.filter(r=>r.metric==='cash_in');
+  const coSeries=series.filter(r=>r.metric==='cash_out');
+  const netSeries=series.filter(r=>r.metric==='net_cash');
+  if(ciSeries.length){
+    const cumulativeNet = netSeries.reduce((sum, r) => sum + (r.value_num || 0), 0);
+    const latestRow = netSeries[netSeries.length - 1];
+    const latestMonth = latestRow.dimension;
+    const latestNet = latestRow.value_num;
+    const latestColorClass = latestNet >= 0 ? 'green' : 'red';
+    const subCashflowEl = document.getElementById('sum-cashflow');
+    if (subCashflowEl) {
+      subCashflowEl.innerHTML = `<span class="val">${fmt(cumulativeNet, 1)}</span> <span class="lbl">tỉ VND (Lũy kế)</span><span class="sep">|</span><span class="val ${latestColorClass}">${fmt(latestNet, 1)}</span> <span class="lbl">tỉ Net (${latestMonth})</span>`;
+    }
+
+    const labels=ciSeries.map(r=>r.dimension);
+    mkChart('c-cashflow',{type:'bar',data:{labels,datasets:[
+      {label:'Cash in',data:ciSeries.map(r=>r.value_num),backgroundColor:'rgba(0,135,90,0.75)',borderRadius:3,maxBarThickness:48},
+      {label:'Cash out',data:coSeries.map(r=>-Math.abs(r.value_num)),backgroundColor:'rgba(222,53,11,0.7)',borderRadius:3,maxBarThickness:48},
+      {label:'Net',data:netSeries.map(r=>r.value_num),type:'line',borderColor:'#003087',
+       backgroundColor:'transparent',borderWidth:2.5,pointRadius:3,tension:0.3}
+    ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales}});
+    // Net oscillation chart — bar màu dựa trên dương/âm, trục Y qua 0
+    const netVals = netSeries.map(r=>r.value_num);
+    mkChart('c-cashflow-net',{type:'bar',data:{labels,datasets:[{
+      data:netVals,
+      backgroundColor:netVals.map(v=>v>=0?'rgba(0,135,90,0.75)':'rgba(222,53,11,0.7)'),
+      borderRadius:3,
+      maxBarThickness:48
+    }]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},
+      tooltip:{callbacks:{label:ctx=>(ctx.parsed.y>=0?'+':'')+ctx.parsed.y.toLocaleString('vi-VN',{minimumFractionDigits:1})+ ' tỉ'}}},
+      scales:{
+        x:{...scales.x,ticks:{...scales.x.ticks,font:{size:10}}},
+        y:{...scales.y,
+          grid:{color:ctx=>ctx.tick.value===0?'rgba(0,0,0,0.35)':'rgba(0,0,0,0.04)',
+                lineWidth:ctx=>ctx.tick.value===0?1.5:1},
+          ticks:{...scales.y.ticks,font:{size:10},
+            callback:v=>v===0?'0':(v>0?'+':'')+v}}
+      }}});
+  }
+}
+async function loadTrading(){
+  const pt=ptype();
+  const [kpi,ch,ms,mg,shsDaily]=await Promise.all([
+    sb('kpi_by_period','*',[`period_type=eq.${pt}`,'order=period_key.desc','limit=1']),
+    sb('trading_channel','*',['order=gtgd_bil.desc']),
+    sb('market_share','*',['order=gtgd_bil.desc']),
+    sb('series_by_period','*',[`period_type=eq.${pt}`,'order=period_key.asc',`metric=in.(margin_normal,margin_3b,margin_ut)`]),
+    sb('market_share_daily','*',[`entity=eq.SHS`,'order=trading_date.desc','limit=1'])
+  ]);
+  // Them SHS vao market_share snapshot neu chua co
+  if(shsDaily.length && !ms.find(r => r.entity === 'SHS')) {
+    ms.unshift({entity: 'SHS', gtgd_bil: shsDaily[0].gtgd_bil});
+  }
+  if(kpi[0]){
+    const k=kpi[0];
+    document.getElementById('kpi-gtgd').textContent=fmt(k.gtgd_bil);
+    document.getElementById('kpi-fee').textContent=fmt(k.fee_mil/1000,3);
+    document.getElementById('kpi-deriv-vol').textContent=fmt(k.derivative_vol,0);
+    document.getElementById('kpi-deriv-fee').textContent=fmt(k.deriv_fee_mil/1000,3);
+    const subChannelGtgd = document.getElementById('sum-channel-gtgd');
+    if (subChannelGtgd) {
+      subChannelGtgd.innerHTML = `<span class="val">${fmt(k.gtgd_bil, 1)}</span> <span class="lbl">tỉ VND (Tổng cộng)</span>`;
+    }
+    const overallFeeBps = k.gtgd_bil > 0 ? (k.fee_mil / k.gtgd_bil * 10) : 0;
+    const overallFeePct = overallFeeBps / 100;
+    const subChannelFee = document.getElementById('sum-channel-fee');
+    if (subChannelFee) {
+      subChannelFee.innerHTML = `<span class="val">${fmt(overallFeePct, 3)}%</span> <span class="lbl">Bình quân hệ thống</span>`;
+    }
+    const subMarket = document.getElementById('sum-market');
+    if (subMarket && k.market_share_pct != null) {
+      subMarket.innerHTML = `<span class="val">${k.market_share_pct}%</span> <span class="lbl">Thị phần SHS</span><span class="sep">|</span><span class="lbl">Xếp hạng</span> <span class="val">#${k.market_rank || '—'}</span>`;
+    }
+    const subMargin = document.getElementById('sum-margin');
+    if (subMargin) {
+      subMargin.innerHTML = `<span class="val">${fmt(k.total_margin_bil, 1)}</span> <span class="lbl">tỉ VND (Tổng dư nợ)</span>`;
+    }
+  }
+  if(ch.length){
+    mkChart('c-channel-gtgd',{type:'doughnut',data:{labels:ch.map(r=>r.channel),
+      datasets:[{data:ch.map(r=>r.gtgd_bil),backgroundColor:PALETTE,borderWidth:0,hoverOffset:6}]},
+      options:{responsive:true,maintainAspectRatio:false,cutout:'58%',
+        plugins:{legend:{position:'bottom',labels:{font:{size:11},padding:12}}}}});
+    mkChart('c-channel-fee',{type:'bar',data:{labels:ch.map(r=>r.channel),
+      datasets:[{data:ch.map(r=>r.fee_bps/100),backgroundColor:PALETTE,borderRadius:4,maxBarThickness:48}]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{
+          legend:{display:false},
+          tooltip:{
+            callbacks:{
+              label: ctx => `Phí: ${ctx.parsed.y.toLocaleString('vi-VN', {minimumFractionDigits:1,maximumFractionDigits:3})}%`
+            }
+          }
+        },
+        scales:{
+          x: scales.x,
+          y:{
+            ...scales.y,
+            ticks:{
+              ...scales.y.ticks,
+              callback:v=>v.toLocaleString('vi-VN', {minimumFractionDigits:1,maximumFractionDigits:3})+'%'
+            }
+          }
+        }
+      }});
+  }
+  if(ms.length){
+    const msColors = ms.map(r => r.entity === 'SHS' ? '#003087' : '#9EA8BC');
+    mkChart('c-market',{type:'bar',data:{labels:ms.map(r=>r.entity),
+      datasets:[{data:ms.map(r=>r.gtgd_bil),
+        backgroundColor:msColors,borderRadius:4,maxBarThickness:48}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},
+        tooltip:{callbacks:{label:ctx=>`${ctx.parsed.y.toLocaleString('vi-VN',{maximumFractionDigits:1})} ti VND`}}},scales}});
+  }
+  if(mg.length){
+    const labels=[...new Set(mg.map(r=>r.dimension))].sort();
+    const get=(metric)=>labels.map(l=>{ const r=mg.find(x=>x.metric===metric&&x.dimension===l); return r?r.value_num:0; });
+    mkChart('c-margin',{type:'bar',data:{labels,datasets:[
+      {label:'Thường',data:get('margin_normal'),backgroundColor:'#003087',borderRadius:2,maxBarThickness:48},
+      {label:'3 bên', data:get('margin_3b'),    backgroundColor:'#0057B8',borderRadius:2,maxBarThickness:48},
+      {label:'Ứng trước',data:get('margin_ut'), backgroundColor:'#F5A623',borderRadius:2,maxBarThickness:48}
+    ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{...scales.x,stacked:true},y:{...scales.y,stacked:true}}}});
+  }
+}
+async function loadBroker(){
+  const [kpi,t10,bc,bt]=await Promise.all([
+    sb('broker_kpi','*',['order=id.desc','limit=1']),
+    sb('broker_top10','*',['order=total_revenue_mil.desc','limit=10']),
+    sb('broker_center','*',['order=active_kh.desc']),
+    sb('broker_type','*',['order=new_kh.desc'])
+  ]);
+  if(kpi[0]){
+    const k=kpi[0];
+    document.getElementById('kpi-broker-total').textContent=fmt(k.total_broker,0);
+    document.getElementById('kpi-broker-kh').textContent=fmt(k.avg_kh_per_broker,0);
+    document.getElementById('kpi-broker-nav').textContent=fmt(k.avg_nav_per_broker);
+  }
+  if(t10.length){
+    const top10Revenue = t10.reduce((sum, r) => sum + (r.total_revenue_mil || 0), 0);
+    const subBrokerTop10 = document.getElementById('sum-broker-top10');
+    if (subBrokerTop10) {
+      subBrokerTop10.innerHTML = `<span class="val">${fmt(top10Revenue, 0)}</span> <span class="lbl">triệu VND (Tổng Top 10)</span>`;
+    }
+    mkChart('c-broker-top10',{type:'bar',indexAxis:'y',
+      data:{labels:t10.map(r=>r.broker_name||r.broker_id),
+        datasets:[{data:t10.map(r=>r.total_revenue_mil),backgroundColor:'#003087',borderRadius:3,barThickness:18}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+        scales:{x:scales.x,y:{grid:{display:false},ticks:{color:'#5E6C84',font:{size:11}}}}}});
+  }
+  if(bc.length){
+    const totalActiveKhCenters = bc.reduce((sum, r) => sum + (r.active_kh || 0), 0);
+    const subBrokerCenter = document.getElementById('sum-broker-center');
+    if (subBrokerCenter) {
+      subBrokerCenter.innerHTML = `<span class="val">${fmt(totalActiveKhCenters, 0)}</span> <span class="lbl">khách hàng hoạt động</span>`;
+    }
+    mkChart('c-broker-center',{type:'doughnut',data:{labels:bc.map(r=>r.center),
+      datasets:[{data:bc.map(r=>r.active_kh),backgroundColor:PALETTE,borderWidth:0,hoverOffset:6}]},
+      options:{responsive:true,maintainAspectRatio:false,cutout:'55%',
+        plugins:{legend:{position:'bottom',labels:{font:{size:11},padding:12}}}}});
+  }
+  if(bt.length){
+    const totalNewKh = bt.reduce((sum, r) => sum + (r.new_kh || 0), 0);
+    const subBrokerType = document.getElementById('sum-broker-type');
+    if (subBrokerType) {
+      subBrokerType.innerHTML = `<span class="val">${fmt(totalNewKh, 0)}</span> <span class="lbl">tài khoản mở mới</span>`;
+    }
+    mkChart('c-broker-type',{type:'bar',data:{labels:bt.map(r=>r.broker_type),
+      datasets:[{data:bt.map(r=>r.new_kh),backgroundColor:'#0057B8',borderRadius:4,maxBarThickness:48}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales}});
+  }
+}
+const loaded={};
+async function switchTab(name,el){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('[id^="tab-"]').forEach(t=>t.classList.add('hidden'));
+  document.getElementById('tab-'+name).classList.remove('hidden');
+  if(!loaded[name]){
+    loaded[name]=true;
+    if(name==='overview') await loadOverview();
+    else if(name==='trading') await loadTrading();
+    else if(name==='broker') await loadBroker();
+  }
+}
+async function loadAll(){
+  try{
+    document.getElementById('loading-state').classList.add('hidden');
+    document.getElementById('tab-overview').classList.remove('hidden');
+    loaded['overview']=true;
+    await loadOverview();
+  } catch(e){
+    document.getElementById('loading-state').classList.add('hidden');
+    const eb=document.getElementById('error-box');
+    eb.classList.remove('hidden');
+    eb.textContent='Lỗi kết nối Supabase: '+e.message;
+  }
+}
+document.addEventListener('DOMContentLoaded',()=>{
+  loadAll();
+});
+</script>
+</body>
+</html>
