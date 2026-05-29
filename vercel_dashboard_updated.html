@@ -235,7 +235,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;ba
           <span class="chart-badge">6 tháng</span>
         </div>
         <div class="chart-summary" id="sum-open">—</div>
-        <div class="legend" id="legend-open" style="margin-bottom:12px"></div>
+        <div class="legend" id="legend-open" style="display:none"></div>
         <div style="position:relative;height:210px"><canvas id="c-open"></canvas></div>
       </div>
       <div class="chart-card">
@@ -437,8 +437,8 @@ async function loadOverview(){
     document.getElementById('kpi-nav').textContent=fmt(k.total_nav_bil);
     document.getElementById('kpi-aum').textContent=fmt(k.total_aum_bil);
     document.getElementById('kpi-margin').textContent=fmt(k.total_margin_bil);
-    document.getElementById('ov-gtgd').textContent=fmt(k.TRADING_VALUE_STOCK);
-    document.getElementById('ov-gtgd-bond').textContent=fmt(k.TRADING_VALUE_BOND);
+    document.getElementById('ov-gtgd').textContent=fmt(k.trading_value_stock);
+    document.getElementById('ov-gtgd-bond').textContent=fmt(k.trading_value_bond);
     document.getElementById('ov-fee').textContent=fmt(k.fee_mil/1000,3);
     document.getElementById('ov-deriv-fee').textContent=fmt(k.deriv_fee_mil/1000,3);
     if(k.market_share_pct!=null){
