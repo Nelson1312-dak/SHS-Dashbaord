@@ -116,17 +116,20 @@ def fetch_daily_via_vnstock(date_from: str, date_to: str) -> dict:
     # Thứ tự thử: VCI trước (nguồn quen), TCBS sau
     for source in ['VCI', 'TCBS']:
         print(f"  vnstock: VNINDEX source={source}  {date_from}→{date_to}")
-        hose_map = get_index_range('VNINDEX',  source)
+        hose_map  = get_index_range('VNINDEX',  source)
         print(f"  vnstock: HNXINDEX source={source}  {date_from}→{date_to}")
-        hnx_map  = get_index_range('HNXINDEX', source)
+        hnx_map   = get_index_range('HNXINDEX', source)
+        print(f"  vnstock: UPCOMINDEX source={source}  {date_from}→{date_to}")
+        upcom_map = get_index_range('UPCOMINDEX', source)
 
-        all_dates = set(hose_map) | set(hnx_map)
+        all_dates = set(hose_map) | set(hnx_map) | set(upcom_map)
         if all_dates:
             for dt in sorted(all_dates):
                 h = hose_map.get(dt, 0.0)
                 n = hnx_map.get(dt, 0.0)
-                result[dt] = {'hose': h, 'hnx': n}
-                print(f"    {dt}  HOSE={h:,.0f}  HNX={n:,.0f}  Tổng={h+n:,.0f} tỉ")
+                u = upcom_map.get(dt, 0.0)
+                result[dt] = {'hose': h, 'hnx': n, 'upcom': u}
+                print(f"    {dt}  HOSE={h:,.0f}  HNX={n:,.0f}  UPCOM={u:,.0f}  Tổng={h+n+u:,.0f} tỉ")
             print(f"  ✓ vnstock/{source} thành công: {len(result)} ngày")
             return result
         print(f"  vnstock/{source}: không có dữ liệu, thử source tiếp theo...")
@@ -305,7 +308,7 @@ def get_shs_daily(engine, date_from: str, date_to: str) -> dict:
     """
     sql = sqlalchemy.text("""
         SELECT TRUNC(DT) AS trading_date,
-               ROUND(NVL(SUM(TRADING_VALUE), 0) / 1e9, 2) AS gtgd_bil
+               ROUND(NVL(SUM(TRADING_VALUE_STOCK), 0) / 1e9, 2) AS gtgd_bil
         FROM FACT_DAILY_CUST_TRADING_MGMT
         WHERE TRUNC(DT) BETWEEN TO_DATE(:df, 'YYYY-MM-DD') AND TO_DATE(:dt, 'YYYY-MM-DD')
         GROUP BY TRUNC(DT)
@@ -323,7 +326,7 @@ def get_shs_daily(engine, date_from: str, date_to: str) -> dict:
 def get_shs_period_total(engine, date_from: str, date_to: str) -> float:
     """Tổng GTGD SHS lũy kế (tỉ VND)."""
     sql = sqlalchemy.text("""
-        SELECT ROUND(NVL(SUM(TRADING_VALUE), 0) / 1e9, 2) AS gtgd_bil
+        SELECT ROUND(NVL(SUM(TRADING_VALUE_STOCK), 0) / 1e9, 2) AS gtgd_bil
         FROM FACT_DAILY_CUST_TRADING_MGMT
         WHERE TRUNC(DT) BETWEEN TO_DATE(:df, 'YYYY-MM-DD') AND TO_DATE(:dt, 'YYYY-MM-DD')
     """)
@@ -428,15 +431,18 @@ def main():
     for dt in sorted(market_data.keys()):
         hose_bil  = market_data[dt]['hose']
         hnx_bil   = market_data[dt]['hnx']
-        total_bil = round(hose_bil + hnx_bil, 1)
+        upcom_bil = market_data[dt].get('upcom', 0.0)
+        total_bil = round(hose_bil + hnx_bil + upcom_bil, 1)
         shs_bil   = shs_daily.get(dt, None)
         share_pct = None
         if shs_bil is not None and total_bil > 0:
             share_pct = round(shs_bil / total_bil * 100, 4)
         print(f"  {dt}: HOSE={hose_bil:,.0f}  HNX={hnx_bil:,.0f}  SHS={shs_bil or '?'}  "
               f"Thị phần={share_pct or '?'}%")
-        rows.append({"trading_date": dt, "entity": "HOSE Total", "gtgd_bil": hose_bil})
-        rows.append({"trading_date": dt, "entity": "HNX Total",  "gtgd_bil": hnx_bil})
+        rows.append({"trading_date": dt, "entity": "HOSE Total",  "gtgd_bil": hose_bil})
+        rows.append({"trading_date": dt, "entity": "HNX Total",   "gtgd_bil": hnx_bil})
+        if upcom_bil > 0:
+            rows.append({"trading_date": dt, "entity": "UPCOM Total", "gtgd_bil": upcom_bil})
         if shs_bil is not None:
             rows.append({"trading_date": dt, "entity": "SHS", "gtgd_bil": shs_bil,
                          "market_share_pct": share_pct})
@@ -459,7 +465,7 @@ def main():
 
     # ── Bước 5: Patch market_share_pct vào kpi_by_period ──
     # Tính thị phần lũy kế = SUM SHS / SUM (HOSE+HNX) trong khoảng date_from → date_to
-    total_market_bil = sum(v['hose'] + v['hnx'] for v in market_data.values())
+    total_market_bil = sum(v['hose'] + v['hnx'] + v.get('upcom', 0) for v in market_data.values())
     shs_dates = set(market_data.keys()) & set(shs_daily.keys())
     total_shs_bil    = sum(shs_daily[d] for d in shs_dates)
 
@@ -486,7 +492,75 @@ def main():
         print("\n  Không đủ dữ liệu để tính thị phần lũy kế.")
 
     print("\n✅ Sync thị phần hoàn tất!")
+    recalc_market_share_from_supabase()
 
+
+
+
+# ── Tính lại thị phần từ data sẵn có trên Supabase ──────────────────────────
+
+def recalc_market_share_from_supabase():
+    """
+    Đọc market_share_daily từ Supabase,
+    tính lại market_share_pct = SHS / (HOSE+HNX+UPCOM) theo từng ngày,
+    patch lại SHS rows + kpi_by_period.
+    """
+    print("\n=== Recalc thị phần từ Supabase ===")
+
+    # Lấy toàn bộ market_share_daily
+    r = requests.get(
+        f"{SUPABASE_URL}/rest/v1/market_share_daily?select=*&limit=1000&order=trading_date.asc",
+        headers=HEADERS
+    )
+    rows = r.json()
+    if not rows:
+        print("  Không có data trong market_share_daily")
+        return
+
+    # Group theo ngày
+    from collections import defaultdict
+    by_date = defaultdict(dict)
+    for row in rows:
+        by_date[row['trading_date']][row['entity']] = float(row['gtgd_bil'] or 0)
+
+    # Tính lại market_share_pct từng ngày và patch
+    updated = 0
+    for dt in sorted(by_date.keys()):
+        d = by_date[dt]
+        total = (d.get('HOSE Total', 0) + d.get('HNX Total', 0) + d.get('UPCOM Total', 0))
+        shs   = d.get('SHS', None)
+        if shs is None or total == 0:
+            continue
+        pct = round(shs / total * 100, 4)
+        r2 = requests.patch(
+            f"{SUPABASE_URL}/rest/v1/market_share_daily?trading_date=eq.{dt}&entity=eq.SHS",
+            headers=HEADERS,
+            data=json.dumps({"market_share_pct": pct})
+        )
+        print(f"  {dt}: SHS={shs:,.1f} / Tổng={total:,.1f} = {pct}%  [{r2.status_code}]")
+        updated += 1
+
+    print(f"  Đã cập nhật {updated} ngày")
+
+    # Tính thị phần lũy kế cho kpi_by_period
+    all_shs   = sum(by_date[dt].get('SHS', 0) for dt in by_date)
+    all_total = sum(by_date[dt].get('HOSE Total',0) + by_date[dt].get('HNX Total',0) + by_date[dt].get('UPCOM Total',0) for dt in by_date)
+    if all_total > 0 and all_shs > 0:
+        period_pct = round(all_shs / all_total * 100, 4)
+        print(f"\n  Thị phần lũy kế: {all_shs:,.1f} / {all_total:,.1f} = {period_pct}%")
+        from datetime import date as _date
+        td = _date.today()
+        q_num = (td.month - 1) // 3 + 1
+        week_num = td.isocalendar()[1]
+        for period_type, period_key in [
+            ('week',        f"{td.year}-W{week_num:02d}"),
+            ('month',       td.strftime('%Y-%m')),
+            ('quarter',     f"{td.year}-Q{q_num}"),
+            ('fiscal_year', str(td.year)),
+        ]:
+            sb_patch_kpi_period(period_type, period_key, {"market_share_pct": period_pct})
+
+    print("✅ Recalc hoàn tất!")
 
 if __name__ == "__main__":
     main()
