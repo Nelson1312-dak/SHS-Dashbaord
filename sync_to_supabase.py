@@ -367,20 +367,63 @@ def main():
             series_rows.append({"metric": "margin_3b",     "dimension": lbl, "value_num": float(m or 0)})
             series_rows.append({"metric": "margin_ut",     "dimension": lbl, "value_num": float(u or 0)})
 
-        if series_rows:
-            # Push vào tất cả 4 period types (Vercel filter nào cũng có data)
-            for period_type, period_key, date_from_p, period_label in period_configs:
+            # Push fiscal_year (YTD) một lần — dùng data đã query ở trên
+            _, _, _, fy_label = [p for p in period_configs if p[0]=='fiscal_year'][0]
+            requests.delete(
+                f"{SUPABASE_URL}/rest/v1/series_by_period?period_type=eq.fiscal_year",
+                headers=HEADERS
+            )
+            fy_rows = [{**r, "period_type": "fiscal_year",
+                        "period_key": str(today.year),
+                        "period_label": fy_label,
+                        "date_from": str(year_start), "date_to": str(today)}
+                       for r in series_rows]
+            insert("series_by_period", fy_rows)
+        else:
+            print("  series_by_period fiscal_year: skip (Oracle trống)")
+
+        # Push week / month / quarter với date_from riêng từng kỳ
+        for period_type, period_key, date_from_p, period_label in period_configs:
+            if period_type == 'fiscal_year':
+                continue  # đã push ở trên
+            try:
+                _nav2 = queries.nav_trend(engine, date_from=date_from_p, date_to=today)
+                _na2  = queries.monthly_new_accounts(engine, date_from=date_from_p, date_to=today)
+                _ar2  = queries.monthly_active_rate(engine, date_from=date_from_p, date_to=today)
+                _cf2  = queries.monthly_cashflow(engine, date_from=date_from_p, date_to=today)
+                _mg2  = queries.margin_trend(engine, date_from=date_from_p, date_to=today)
+
+                rows2 = []
+                for lbl, val in zip(_nav2.get("labels",[]), _nav2.get("nav",[])):
+                    rows2.append({"metric":"nav","dimension":lbl,"value_num":float(val or 0)})
+                for ch_name, vals in _na2.get("channels",{}).items():
+                    for lbl, val in zip(_na2.get("labels",[]), vals):
+                        rows2.append({"metric":"new_accounts","dimension":f"{lbl}|{ch_name}","value_num":int(val or 0)})
+                for lbl, val in zip(_ar2.get("labels",[]), _ar2.get("rates",[])):
+                    rows2.append({"metric":"active_rate","dimension":lbl,"value_num":float(val or 0)})
+                for lbl,ci,co,net in zip(_cf2.get("labels",[]),_cf2.get("cash_in",[]),_cf2.get("cash_out",[]),_cf2.get("net",[])):
+                    rows2.append({"metric":"cash_in","dimension":lbl,"value_num":float(ci or 0)})
+                    rows2.append({"metric":"cash_out","dimension":lbl,"value_num":float(co or 0)})
+                    rows2.append({"metric":"net_cash","dimension":lbl,"value_num":float(net or 0)})
+                for lbl,n,m,u in zip(_mg2.get("labels",[]),_mg2.get("normal",[]),_mg2.get("m3b",[]),_mg2.get("ut",[])):
+                    rows2.append({"metric":"margin_normal","dimension":lbl,"value_num":float(n or 0)})
+                    rows2.append({"metric":"margin_3b","dimension":lbl,"value_num":float(m or 0)})
+                    rows2.append({"metric":"margin_ut","dimension":lbl,"value_num":float(u or 0)})
+
                 requests.delete(
                     f"{SUPABASE_URL}/rest/v1/series_by_period?period_type=eq.{period_type}",
                     headers=HEADERS
                 )
-                typed = [{**r, "period_type": period_type, "period_key": period_key,
-                          "period_label": period_label,
-                          "date_from": str(date_from_p), "date_to": str(today)}
-                         for r in series_rows]
-                insert("series_by_period", typed)
-        else:
-            print("  series_by_period: skip (Oracle trống)")
+                if rows2:
+                    typed2 = [{**r, "period_type":period_type, "period_key":period_key,
+                               "period_label":period_label,
+                               "date_from":str(date_from_p), "date_to":str(today)}
+                              for r in rows2]
+                    insert("series_by_period", typed2)
+                else:
+                    print(f"  series_by_period {period_type}: no data in period")
+            except Exception as e2:
+                print(f"  series_by_period {period_type}: ERROR {e2}")
 
     except Exception as e:
         print(f"  ERROR: {e}")
