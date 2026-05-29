@@ -311,7 +311,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;ba
     </div>
     <div class="chart-row">
       <div class="chart-card">
-        <div class="chart-header"><span class="chart-title">Thị phần GTGD cổ phiếu</span><span class="chart-badge">top CK</span></div>
+        <div class="chart-header"><span class="chart-title">Thị phần GTGD cổ phiếu</span><span class="chart-badge">theo ngày</span></div>
         <div class="chart-summary" id="sum-market">—</div>
         <div style="position:relative;height:220px"><canvas id="c-market"></canvas></div>
       </div>
@@ -776,13 +776,19 @@ async function loadTrading(){
         }
       }});
   }
-  if(ms.length){
-    const msColors = ms.map(r => r.entity === 'SHS' ? '#003087' : '#9EA8BC');
-    mkChart('c-market',{type:'bar',data:{labels:ms.map(r=>r.entity),
-      datasets:[{data:ms.map(r=>r.gtgd_bil),
-        backgroundColor:msColors,borderRadius:4,maxBarThickness:48}]},
-      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},
-        tooltip:{callbacks:{label:ctx=>`${ctx.parsed.y.toLocaleString('vi-VN',{maximumFractionDigits:1})} ti VND`}}},scales}});
+  // Line chart thi phan SHS theo ngay tu market_share_daily (tab Giao dich)
+  const msDailyForTrading = msDailyAll ? msDailyAll.filter(r=>r.entity==='SHS'&&r.market_share_pct!=null) : [];
+  if(msDailyForTrading.length){
+    const dtLabels = msDailyForTrading.map(r=>{
+      const p=r.trading_date.split('-'); return p.length>=3?`${p[2]}/${p[1]}`:r.trading_date;
+    });
+    mkChart('c-market',{type:'line',data:{labels:dtLabels,datasets:[{
+      data:msDailyForTrading.map(r=>r.market_share_pct),
+      borderColor:'#003087',backgroundColor:'rgba(0,48,135,0.08)',
+      borderWidth:2.5,pointRadius:3,pointBackgroundColor:'#003087',fill:true,tension:0.3
+    }]},options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`Thị phần: ${ctx.parsed.y}%`}}},
+      scales:{x:scales.x,y:{...scales.y,ticks:{callback:v=>v+'%'}}}}});
   }
   if(mg.length){
     const labels=[...new Set(mg.map(r=>r.dimension))].sort().filter(l=>l);
