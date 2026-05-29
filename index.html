@@ -169,15 +169,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;ba
     Môi giới
   </div>
 </div>
-<div class="filter-bar" style="background:#fff;border-bottom:1px solid var(--gray-200);padding:10px 28px;display:flex;align-items:center;gap:8px">
+<div class="filter-bar" style="background:#fff;border-bottom:1px solid var(--gray-200);padding:10px 28px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
   <span style="font-size:12px;color:var(--gray-600);font-weight:500;margin-right:4px">Kỳ báo cáo:</span>
-  <div style="display:flex;gap:4px" id="filter-btns">
+  <div style="display:flex;gap:4px;flex-wrap:wrap" id="filter-btns">
     <button class="filter-btn" onclick="setFilter('week',this)">Tuần</button>
     <button class="filter-btn" onclick="setFilter('month',this)">Tháng</button>
     <button class="filter-btn active" onclick="setFilter('quarter',this)">Quý</button>
     <button class="filter-btn" onclick="setFilter('year',this)">Năm tài chính</button>
+    <button class="filter-btn" onclick="setFilter('custom',this)" id="btn-custom">Tùy chỉnh</button>
   </div>
-  <span style="font-size:12px;color:var(--gray-400);margin-left:8px" id="filter-label">Tuần hiện tại</span>
+  <span style="font-size:12px;color:var(--gray-500);margin-left:4px;background:#f0f4ff;border:1px solid #c7d6f5;border-radius:6px;padding:3px 10px;font-weight:500" id="filter-date-range"></span>
+  <div id="custom-date-wrap" style="display:none;align-items:center;gap:6px;margin-left:4px">
+    <input type="date" id="date-from" min="2026-01-01" style="font-size:12px;border:1px solid var(--gray-200);border-radius:6px;padding:3px 8px;color:var(--gray-700);outline:none;cursor:pointer" onchange="applyCustomDate()">
+    <span style="font-size:12px;color:var(--gray-400)">→</span>
+    <input type="date" id="date-to" min="2026-01-01" style="font-size:12px;border:1px solid var(--gray-200);border-radius:6px;padding:3px 8px;color:var(--gray-700);outline:none;cursor:pointer" onchange="applyCustomDate()">
+  </div>
 </div>
 <div class="content">
   <div id="loading-state" class="loading-wrap">
@@ -363,29 +369,109 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const PALETTE=['#003087','#0057B8','#00875A','#F5A623','#DE350B','#7c3aed','#0891b2','#be185d'];
 const charts={};
 let currentFilter='quarter';
-const FILTER_LABELS={week:'Tuần hiện tại',month:'Tháng hiện tại',quarter:getQuarterLabel(),year:'Năm tài chính 2026'};
-function getQuarterLabel(){
-  const m=new Date().getMonth()+1;
-  const q=Math.ceil(m/3);
-  return `Q${q}/${new Date().getFullYear()}`;
+let dateFrom='', dateTo='';
+
+function fmtDateVN(d){ // d: Date obj -> DD/MM/YYYY
+  return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
 }
+function isoDate(d){ return d.toISOString().slice(0,10); }
+
+function getPeriodRange(f){
+  const now=new Date();
+  const y=now.getFullYear(), m=now.getMonth(), day=now.getDay();
+  if(f==='week'){
+    // Mon-Sun of current week
+    const mon=new Date(now); mon.setDate(now.getDate()-(day===0?6:day-1));
+    const sun=new Date(mon); sun.setDate(mon.getDate()+6);
+    return [mon,sun];
+  }
+  if(f==='month'){
+    const first=new Date(y,m,1);
+    const last=new Date(y,m+1,0);
+    return [first,last];
+  }
+  if(f==='quarter'){
+    const q=Math.floor(m/3);
+    const first=new Date(y,q*3,1);
+    const last=new Date(y,q*3+3,0);
+    return [first,last];
+  }
+  if(f==='year'){
+    // Fiscal year: Apr 1 prev year - Mar 31 current year
+    const fiscalStart = m < 3 ? new Date(y-1,3,1) : new Date(y,3,1);
+    const fiscalEnd   = m < 3 ? new Date(y,2,31)  : new Date(y+1,2,31);
+    return [fiscalStart,fiscalEnd];
+  }
+  return [null,null];
+}
+
+function updateDateRangeDisplay(){
+  const el=document.getElementById('filter-date-range');
+  if(dateFrom && dateTo){
+    const [fy,fm,fd]=dateFrom.split('-'); const [ty,tm,td]=dateTo.split('-');
+    el.textContent=`${fd}/${fm}/${fy} → ${td}/${tm}/${ty}`;
+    el.style.display='inline-block';
+  } else { el.style.display='none'; }
+}
+
 function setFilter(f,el){
   currentFilter=f;
   document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
   el.classList.add('active');
-  document.getElementById('filter-label').textContent=FILTER_LABELS[f==='year'?'year':f];
+  const customWrap=document.getElementById('custom-date-wrap');
+  if(f==='custom'){
+    customWrap.style.display='flex';
+    // Default: current week if no dates set yet
+    if(!document.getElementById('date-from').value){
+      const [s,e]=getPeriodRange('week');
+      document.getElementById('date-from').value=isoDate(s);
+      document.getElementById('date-to').value=isoDate(e);
+    }
+    dateFrom=document.getElementById('date-from').value;
+    dateTo=document.getElementById('date-to').value;
+  } else {
+    customWrap.style.display='none';
+    const [s,e]=getPeriodRange(f);
+    if(s&&e){ dateFrom=isoDate(s); dateTo=isoDate(e); }
+    else { dateFrom=''; dateTo=''; }
+  }
+  updateDateRangeDisplay();
   Object.keys(loaded).forEach(k=>delete loaded[k]);
   const activeTab=document.querySelector('.tab.active');
   const match=activeTab.getAttribute('onclick').match(/'([^']+)'/);
   if(match) switchTab(match[1],activeTab);
 }
+
+function applyCustomDate(){
+  dateFrom=document.getElementById('date-from').value;
+  dateTo=document.getElementById('date-to').value;
+  if(!dateFrom||!dateTo) return;
+  if(dateTo<dateFrom) return;
+  updateDateRangeDisplay();
+  Object.keys(loaded).forEach(k=>delete loaded[k]);
+  const activeTab=document.querySelector('.tab.active');
+  const match=activeTab.getAttribute('onclick').match(/'([^']+)'/);
+  if(match) switchTab(match[1],activeTab);
+}
+
+// Init date range for default filter (quarter)
+(function(){
+  const [s,e]=getPeriodRange('quarter');
+  if(s&&e){ dateFrom=isoDate(s); dateTo=isoDate(e); }
+})();
 async function sb(table,select='*',filters=[]){
   let url=`${SUPABASE_URL}/rest/v1/${table}?select=${select}`;
   filters.forEach(f=>url+=`&${f}`);
   const r=await fetch(url,{headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`}});
   return r.json();
 }
-function ptype(){ if(currentFilter==='year') return 'fiscal_year'; if(currentFilter==='quarter') return 'quarter'; return currentFilter; }
+function ptype(){ if(currentFilter==='year') return 'fiscal_year'; if(currentFilter==='quarter') return 'quarter'; if(currentFilter==='custom') return 'week'; return currentFilter; }
+function msDateFilters(){
+  const f=[];
+  if(dateFrom) f.push(`trading_date=gte.${dateFrom}`);
+  if(dateTo)   f.push(`trading_date=lte.${dateTo}`);
+  return f;
+}
 function fmt(v,d=1){
   if(v==null||v==='')return'—';
   const n=Number(v);
@@ -408,7 +494,7 @@ async function loadOverview(){
     sb('kpi_by_period','*',[`period_type=eq.${pt}`,'order=period_key.desc','limit=1']),
     sb('series_by_period','*',[`period_type=eq.${pt}`,'order=period_key.asc']),
     sb('market_share','*',['order=gtgd_bil.desc']),
-    sb('market_share_daily','*',['order=trading_date.asc'])
+    sb('market_share_daily','*',[...msDateFilters(),'order=trading_date.asc'])
   ]);
   // Tach SHS va tong san tu market_share_daily
   const msDaily = msDailyAll.filter(r => r.entity === 'SHS');
@@ -713,7 +799,7 @@ async function loadTrading(){
     sb('trading_channel','*',['order=gtgd_bil.desc']),
     sb('market_share','*',['order=gtgd_bil.desc']),
     sb('series_by_period','*',[`period_type=eq.${pt}`,'order=period_key.asc',`metric=in.(margin_normal,margin_3b,margin_ut)`]),
-    sb('market_share_daily','*',[`entity=eq.SHS`,'order=trading_date.desc','limit=1'])
+    sb('market_share_daily','*',[`entity=eq.SHS`,...msDateFilters(),'order=trading_date.desc','limit=1'])
   ]);
   // Them SHS vao market_share snapshot neu chua co
   if(shsDaily.length && !ms.find(r => r.entity === 'SHS')) {
@@ -805,78 +891,4 @@ async function loadBroker(){
   const [kpi,t10,bc,bt]=await Promise.all([
     sb('broker_kpi','*',['order=id.desc','limit=1']),
     sb('broker_top10','*',['order=total_revenue_mil.desc','limit=10']),
-    sb('broker_center','*',['order=active_kh.desc']),
-    sb('broker_type','*',['order=new_kh.desc'])
-  ]);
-  if(kpi[0]){
-    const k=kpi[0];
-    document.getElementById('kpi-broker-total').textContent=fmt(k.total_broker,0);
-    document.getElementById('kpi-broker-kh').textContent=fmt(k.avg_kh_per_broker,0);
-    document.getElementById('kpi-broker-nav').textContent=fmt(k.avg_nav_per_broker);
-  }
-  if(t10.length){
-    const top10Revenue = t10.reduce((sum, r) => sum + (r.total_revenue_mil || 0), 0);
-    const subBrokerTop10 = document.getElementById('sum-broker-top10');
-    if (subBrokerTop10) {
-      subBrokerTop10.innerHTML = `<span class="val">${fmt(top10Revenue, 0)}</span> <span class="lbl">triệu VND (Tổng Top 10)</span>`;
-    }
-    mkChart('c-broker-top10',{type:'bar',indexAxis:'y',
-      data:{labels:t10.map(r=>r.broker_name||r.broker_id),
-        datasets:[{data:t10.map(r=>r.total_revenue_mil),backgroundColor:'#003087',borderRadius:3,barThickness:18}]},
-      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
-        scales:{x:scales.x,y:{grid:{display:false},ticks:{color:'#5E6C84',font:{size:11}}}}}});
-  }
-  if(bc.length){
-    const totalActiveKhCenters = bc.reduce((sum, r) => sum + (r.active_kh || 0), 0);
-    const subBrokerCenter = document.getElementById('sum-broker-center');
-    if (subBrokerCenter) {
-      subBrokerCenter.innerHTML = `<span class="val">${fmt(totalActiveKhCenters, 0)}</span> <span class="lbl">khách hàng hoạt động</span>`;
-    }
-    mkChart('c-broker-center',{type:'doughnut',data:{labels:bc.map(r=>r.center),
-      datasets:[{data:bc.map(r=>r.active_kh),backgroundColor:PALETTE,borderWidth:0,hoverOffset:6}]},
-      options:{responsive:true,maintainAspectRatio:false,cutout:'55%',
-        plugins:{legend:{position:'bottom',labels:{font:{size:11},padding:12}}}}});
-  }
-  if(bt.length){
-    const totalNewKh = bt.reduce((sum, r) => sum + (r.new_kh || 0), 0);
-    const subBrokerType = document.getElementById('sum-broker-type');
-    if (subBrokerType) {
-      subBrokerType.innerHTML = `<span class="val">${fmt(totalNewKh, 0)}</span> <span class="lbl">tài khoản mở mới</span>`;
-    }
-    mkChart('c-broker-type',{type:'bar',data:{labels:bt.map(r=>r.broker_type),
-      datasets:[{data:bt.map(r=>r.new_kh),backgroundColor:'#0057B8',borderRadius:4,maxBarThickness:48}]},
-      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales}});
-  }
-}
-const loaded={};
-async function switchTab(name,el){
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-  el.classList.add('active');
-  document.querySelectorAll('[id^="tab-"]').forEach(t=>t.classList.add('hidden'));
-  document.getElementById('tab-'+name).classList.remove('hidden');
-  if(!loaded[name]){
-    loaded[name]=true;
-    if(name==='overview') await loadOverview();
-    else if(name==='trading') await loadTrading();
-    else if(name==='broker') await loadBroker();
-  }
-}
-async function loadAll(){
-  try{
-    document.getElementById('loading-state').classList.add('hidden');
-    document.getElementById('tab-overview').classList.remove('hidden');
-    loaded['overview']=true;
-    await loadOverview();
-  } catch(e){
-    document.getElementById('loading-state').classList.add('hidden');
-    const eb=document.getElementById('error-box');
-    eb.classList.remove('hidden');
-    eb.textContent='Lỗi kết nối Supabase: '+e.message;
-  }
-}
-document.addEventListener('DOMContentLoaded',()=>{
-  loadAll();
-});
-</script>
-</body>
-</html>
+    sb('broker_center','*',['order=active_kh.de
