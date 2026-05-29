@@ -732,8 +732,12 @@ async function loadTrading(){
     }
   }
   if(ch.length){
-    mkChart('c-channel-gtgd',{type:'doughnut',data:{labels:ch.map(r=>r.channel),
-      datasets:[{data:ch.map(r=>r.gtgd_bil),backgroundColor:PALETTE,borderWidth:0,hoverOffset:6}]},
+    const chTop5 = ch.slice(0,5);
+    const chOther = ch.slice(5);
+    const otherVal = chOther.reduce((s,r)=>s+(r.gtgd_bil||0),0);
+    const chDisplay = otherVal>0 ? [...chTop5,{channel:'Khác',gtgd_bil:otherVal}] : chTop5;
+    mkChart('c-channel-gtgd',{type:'doughnut',data:{labels:chDisplay.map(r=>r.channel),
+      datasets:[{data:chDisplay.map(r=>r.gtgd_bil),backgroundColor:PALETTE,borderWidth:0,hoverOffset:6}]},
       options:{responsive:true,maintainAspectRatio:false,cutout:'58%',
         plugins:{legend:{position:'bottom',labels:{font:{size:11},padding:12}}}}});
     mkChart('c-channel-fee',{type:'bar',data:{labels:ch.map(r=>r.channel),
