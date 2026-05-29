@@ -251,8 +251,11 @@ def margin_trend(engine, date_from=None, date_to=None, **kwargs):
             ROUND(SUM(a.MARGIN_3B)     / 1e9, 1)        AS m3b,
             ROUND(SUM(a.MARGIN_UT)     / 1e9, 1)        AS ut
         FROM FACT_DAILY_CUST_ASSET_MGMT a
-        WHERE TRUNC(a.DT) BETWEEN :df AND :dt
-          AND TRUNC(a.DT) = LAST_DAY(TRUNC(a.DT))
+        WHERE TRUNC(a.DT) IN (
+            SELECT MAX(TRUNC(DT)) FROM FACT_DAILY_CUST_ASSET_MGMT
+            WHERE TRUNC(DT) BETWEEN :df AND :dt
+            GROUP BY TRUNC(DT, 'MM')
+        )
         GROUP BY TRUNC(a.DT, 'MM')
         ORDER BY TRUNC(a.DT, 'MM')
     """

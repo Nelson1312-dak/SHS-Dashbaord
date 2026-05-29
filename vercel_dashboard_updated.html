@@ -490,15 +490,28 @@ async function loadOverview(){
     document.getElementById('legend-open').innerHTML=channels.map((c,i)=>
       `<span class="leg"><span class="leg-dot" style="background:${PALETTE[i%PALETTE.length]}"></span>${c}</span>`
     ).join('');
-    mkChart('c-open',{type:'bar',data:{labels:months,datasets:channels.map((ch,i)=>({
-      label:ch,
+    const totalPerMonth = months.map(m => naSeries.filter(r=>r.dimension.startsWith(m+'|')).reduce((s,r)=>s+(r.value_num||0),0));
+    const barDatasets = channels.map((ch,i)=>({
+      type:'bar', label:ch,
       data:months.map(m=>{ const r=naSeries.find(x=>x.dimension===`${m}|${ch}`); return r?r.value_num:0; }),
-      backgroundColor:PALETTE[i%PALETTE.length],borderRadius:3,
-      maxBarThickness:48
-    }))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
-      scales:{x:{...scales.x,stacked:true},y:{...scales.y,stacked:true}}}});
+      backgroundColor:PALETTE[i%PALETTE.length],borderRadius:3,maxBarThickness:48
+    }));
+    const lineDataset = {
+      type:'line', label:'Tổng',
+      data:totalPerMonth,
+      borderColor:'#003087',borderWidth:2.5,pointRadius:4,
+      pointBackgroundColor:'#003087',fill:false,tension:0.3,
+      yAxisID:'y'
+    };
+    mkChart('c-open',{type:'bar',data:{labels:months,datasets:[...barDatasets, lineDataset]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},tooltip:{mode:'index',intersect:false}},
+        scales:{x:{...scales.x,stacked:true},y:{...scales.y,stacked:true}}}});
   }
   const arSeries=series.filter(r=>r.metric==='active_rate');
+  document.getElementById('sum-active-rate').innerHTML = arSeries.length
+    ? document.getElementById('sum-active-rate').innerHTML
+    : '<span class="lbl">Chưa có dữ liệu kỳ này</span>';
   if(arSeries.length){
     const latestRow = arSeries[arSeries.length - 1];
     const latestMonth = latestRow.dimension;
@@ -708,15 +721,15 @@ async function loadTrading(){
   }
   if(kpi[0]){
     const k=kpi[0];
-    document.getElementById('kpi-gtgd').textContent=fmt(k.gtgd_bil);
+    document.getElementById('kpi-gtgd').textContent=fmt(k.trading_value_stock);
     document.getElementById('kpi-fee').textContent=fmt(k.fee_mil/1000,3);
     document.getElementById('kpi-deriv-vol').textContent=fmt(k.derivative_vol,0);
     document.getElementById('kpi-deriv-fee').textContent=fmt(k.deriv_fee_mil/1000,3);
     const subChannelGtgd = document.getElementById('sum-channel-gtgd');
     if (subChannelGtgd) {
-      subChannelGtgd.innerHTML = `<span class="val">${fmt(k.gtgd_bil, 1)}</span> <span class="lbl">tỉ VND (Tổng cộng)</span>`;
+      subChannelGtgd.innerHTML = `<span class="val">${fmt(k.trading_value_stock, 1)}</span> <span class="lbl">tỉ VND (Tổng cộng)</span>`;
     }
-    const overallFeeBps = k.gtgd_bil > 0 ? (k.fee_mil / k.gtgd_bil * 10) : 0;
+    const overallFeeBps = k.trading_value_stock > 0 ? (k.fee_mil / k.trading_value_stock * 10) : 0;
     const overallFeePct = overallFeeBps / 100;
     const subChannelFee = document.getElementById('sum-channel-fee');
     if (subChannelFee) {
@@ -772,7 +785,7 @@ async function loadTrading(){
         tooltip:{callbacks:{label:ctx=>`${ctx.parsed.y.toLocaleString('vi-VN',{maximumFractionDigits:1})} ti VND`}}},scales}});
   }
   if(mg.length){
-    const labels=[...new Set(mg.map(r=>r.dimension))].sort();
+    const labels=[...new Set(mg.map(r=>r.dimension))].sort().filter(l=>l);
     const get=(metric)=>labels.map(l=>{ const r=mg.find(x=>x.metric===metric&&x.dimension===l); return r?r.value_num:0; });
     mkChart('c-margin',{type:'bar',data:{labels,datasets:[
       {label:'Thường',data:get('margin_normal'),backgroundColor:'#003087',borderRadius:2,maxBarThickness:48},
