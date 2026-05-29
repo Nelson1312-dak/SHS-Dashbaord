@@ -85,8 +85,11 @@ def monthly_active_rate(engine, date_from=None, date_to=None, **kwargs):
             COUNT(DISTINCT CASE WHEN c.IS_ACTIVE_PUB = '1' THEN a.CUSTID END)      AS active_kh
         FROM FACT_DAILY_CUST_ASSET_MGMT a
         JOIN DIM_CUSTOMER c ON c.CUSTID = a.CUSTID
-        WHERE TRUNC(a.DT) BETWEEN :df AND :dt
-          AND TRUNC(a.DT) = LAST_DAY(TRUNC(a.DT))
+        WHERE TRUNC(a.DT) IN (
+            SELECT MAX(TRUNC(DT)) FROM FACT_DAILY_CUST_ASSET_MGMT
+            WHERE TRUNC(DT) BETWEEN :df AND :dt
+            GROUP BY TRUNC(DT, 'MM')
+        )
         GROUP BY TRUNC(a.DT, 'MM')
         ORDER BY TRUNC(a.DT, 'MM')
     """
@@ -132,8 +135,11 @@ def nav_trend(engine, date_from=None, date_to=None, **kwargs):
             TO_CHAR(TRUNC(a.DT, 'MM'), 'MM/YYYY') AS month_label,
             ROUND(SUM(a.NAV) / 1e9, 1)               AS total_nav
         FROM FACT_DAILY_CUST_ASSET_MGMT a
-        WHERE TRUNC(a.DT) BETWEEN :df AND :dt
-          AND TRUNC(a.DT) = LAST_DAY(TRUNC(a.DT))
+        WHERE TRUNC(a.DT) IN (
+            SELECT MAX(TRUNC(DT)) FROM FACT_DAILY_CUST_ASSET_MGMT
+            WHERE TRUNC(DT) BETWEEN :df AND :dt
+            GROUP BY TRUNC(DT, 'MM')
+        )
         GROUP BY TRUNC(a.DT, 'MM')
         ORDER BY TRUNC(a.DT, 'MM')
     """
