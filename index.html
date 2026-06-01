@@ -490,9 +490,10 @@ const scales={
 };
 async function loadOverview(){
   const pt=ptype();
+  const kpiDateF = pt==='month' ? seriesDateFilters() : [];
   const [kpi,series,ms,msDailyAll]=await Promise.all([
-    sb('kpi_by_period','*',[`period_type=eq.${pt}`,'order=period_key.desc','limit=1']),
-    sb('series_by_period','*',[`period_type=eq.${pt}`,...(pt==='month'?seriesDateFilters():[]),'order=period_key.asc']),
+    sb('kpi_by_period','*',[`period_type=eq.${pt}`,...kpiDateF,'order=period_key.desc','limit=1']),
+    sb('series_by_period','*',[`period_type=eq.${pt}`,...kpiDateF,'order=period_key.asc']),
     sb('market_share','*',['order=gtgd_bil.desc']),
     sb('market_share_daily','*',[...msDateFilters(),'order=trading_date.asc'])
   ]);
@@ -794,11 +795,12 @@ async function loadOverview(){
 }
 async function loadTrading(){
   const pt=ptype();
+  const kpiDateF2 = pt==='month' ? seriesDateFilters() : [];
   const [kpi,ch,ms,mg,shsDaily]=await Promise.all([
-    sb('kpi_by_period','*',[`period_type=eq.${pt}`,'order=period_key.desc','limit=1']),
+    sb('kpi_by_period','*',[`period_type=eq.${pt}`,...kpiDateF2,'order=period_key.desc','limit=1']),
     sb('trading_channel','*',['order=gtgd_bil.desc']),
     sb('market_share','*',['order=gtgd_bil.desc']),
-    sb('series_by_period','*',[`period_type=eq.${pt}`,...(pt==='month'?seriesDateFilters():[]),'order=period_key.asc',`metric=in.(margin_normal,margin_3b,margin_ut)`]),
+    sb('series_by_period','*',[`period_type=eq.${pt}`,...kpiDateF2,'order=period_key.asc',`metric=in.(margin_normal,margin_3b,margin_ut)`]),
     sb('market_share_daily','*',[`entity=eq.SHS`,...msDateFilters(),'order=trading_date.desc','limit=1'])
   ]);
   // Them SHS vao market_share snapshot neu chua co
