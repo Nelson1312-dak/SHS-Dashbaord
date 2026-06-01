@@ -491,9 +491,11 @@ const scales={
 async function loadOverview(){
   const pt=ptype();
   const kpiDateF = pt==='month' ? seriesDateFilters() : [];
+  // Custom: lấy fiscal_year series rồi filter client-side theo date range
+  const seriesPt = (currentFilter==='custom') ? 'fiscal_year' : pt;
   const [kpi,series,ms,msDailyAll]=await Promise.all([
     sb('kpi_by_period','*',[`period_type=eq.${pt}`,...kpiDateF,'order=period_key.desc','limit=1']),
-    sb('series_by_period','*',[`period_type=eq.${pt}`,...kpiDateF,'order=period_key.asc']),
+    sb('series_by_period','*',[`period_type=eq.${seriesPt}`,'order=period_key.asc']),
     sb('market_share','*',['order=gtgd_bil.desc']),
     sb('market_share_daily','*',[...msDateFilters(),'order=trading_date.asc'])
   ]);
@@ -541,8 +543,23 @@ async function loadOverview(){
       }
     }
   }
+  // Nếu custom filter: lọc series dimensions theo date range
+  function inDateRange(dimStr) {
+    // dimStr dạng "MM/YYYY" hoặc "MM/YYYY|channel"
+    const part = dimStr.split('|')[0].trim(); // "MM/YYYY"
+    const [mm, yyyy] = part.split('/');
+    if (!mm || !yyyy) return true;
+    const dimKey = `${yyyy}-${mm.padStart(2,'0')}`;
+    const fromKey = dateFrom ? dateFrom.slice(0,7) : '0000-00';
+    const toKey   = dateTo   ? dateTo.slice(0,7)   : '9999-99';
+    return dimKey >= fromKey && dimKey <= toKey;
+  }
+  const filteredSeries = (currentFilter==='custom' && dateFrom && dateTo)
+    ? series.filter(r => inDateRange(r.dimension))
+    : series;
+
   // Charts from series
-  const navSeries=series.filter(r=>r.metric==='nav');
+  const navSeries=filteredSeries.filter(r=>r.metric==='nav');
   if(navSeries.length){
     const latestRow = navSeries[navSeries.length - 1];
     const latestMonth = latestRow.dimension;
@@ -559,7 +576,7 @@ async function loadOverview(){
       pointRadius:4,pointBackgroundColor:'#003087',fill:true,tension:0.35
     }]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales}});
   }
-  const naSeries=series.filter(r=>r.metric==='new_accounts');
+  const naSeries=filteredSeries.filter(r=>r.metric==='new_accounts');
   if(naSeries.length){
     const totalNewAccounts = naSeries.reduce((sum, r) => sum + (r.value_num || 0), 0);
     const allDims=[...new Set(naSeries.map(r=>r.dimension))];
@@ -595,7 +612,7 @@ async function loadOverview(){
         plugins:{legend:{display:false},tooltip:{mode:'index',intersect:false}},
         scales:{x:{...scales.x,stacked:true},y:{...scales.y,stacked:true}}}});
   }
-  const arSeries=series.filter(r=>r.metric==='active_rate');
+  const arSeries=filteredSeries.filter(r=>r.metric==='active_rate');
   document.getElementById('sum-active-rate').innerHTML = arSeries.length
     ? document.getElementById('sum-active-rate').innerHTML
     : '<span class="lbl">Chưa có dữ liệu kỳ này</span>';
@@ -753,9 +770,9 @@ async function loadOverview(){
       }
     });
   }
-  const ciSeries=series.filter(r=>r.metric==='cash_in');
-  const coSeries=series.filter(r=>r.metric==='cash_out');
-  const netSeries=series.filter(r=>r.metric==='net_cash');
+  const ciSeries=filteredSeries.filter(r=>r.metric==='cash_in');
+  const coSeries=filteredSeries.filter(r=>r.metric==='cash_out');
+  const netSeries=filteredSeries.filter(r=>r.metric==='net_cash');
   if(ciSeries.length){
     const cumulativeNet = netSeries.reduce((sum, r) => sum + (r.value_num || 0), 0);
     const latestRow = netSeries[netSeries.length - 1];
@@ -796,11 +813,12 @@ async function loadOverview(){
 async function loadTrading(){
   const pt=ptype();
   const kpiDateF2 = pt==='month' ? seriesDateFilters() : [];
+  const seriesPt2 = (currentFilter==='custom') ? 'fiscal_year' : pt;
   const [kpi,ch,ms,mg,shsDaily]=await Promise.all([
     sb('kpi_by_period','*',[`period_type=eq.${pt}`,...kpiDateF2,'order=period_key.desc','limit=1']),
     sb('trading_channel','*',['order=gtgd_bil.desc']),
     sb('market_share','*',['order=gtgd_bil.desc']),
-    sb('series_by_period','*',[`period_type=eq.${pt}`,...kpiDateF2,'order=period_key.asc',`metric=in.(margin_normal,margin_3b,margin_ut)`]),
+    sb('series_by_period','*',[`period_type=eq.${seriesPt2}`,'order=period_key.asc',`metric=in.(margin_normal,margin_3b,margin_ut)`]),
     sb('market_share_daily','*',[`entity=eq.SHS`,...msDateFilters(),'order=trading_date.desc','limit=1'])
   ]);
   // Them SHS vao market_share snapshot neu chua co
