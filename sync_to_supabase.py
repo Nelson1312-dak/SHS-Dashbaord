@@ -431,6 +431,39 @@ def main():
     except Exception as e:
         print(f"  ERROR: {e}")
 
+    # ── kpi_by_period: daily (cho custom date filter) ──
+    print("\n[kpi_by_period — daily]")
+    try:
+        daily_rows = queries.daily_trading_kpi(engine, date_from=year_start, date_to=today)
+        daily_margin = queries.daily_margin_interest(engine, date_from=year_start, date_to=today)
+        if daily_rows:
+            # Xóa toàn bộ daily records cũ rồi insert lại
+            requests.delete(
+                f"{SUPABASE_URL}/rest/v1/kpi_by_period?period_type=eq.day",
+                headers=HEADERS
+            )
+            batch = []
+            for r in daily_rows:
+                day_str = str(r['trading_date'])[:10]
+                batch.append({
+                    "period_type":         "day",
+                    "period_key":          day_str,
+                    "period_label":        day_str,
+                    "date_from":           day_str,
+                    "date_to":             day_str,
+                    "trading_value_stock": float(r.get('trading_value_stock') or 0),
+                    "trading_value_bond":  float(r.get('trading_value_bond')  or 0),
+                    "fee_mil":             float(r.get('fee_mil')             or 0),
+                    "derivative_vol":      int(r.get('derivative_vol')        or 0),
+                    "deriv_fee_mil":       float(daily_margin.get(day_str, 0)),
+                })
+            insert("kpi_by_period", batch)
+            print(f"  Inserted {len(batch)} daily rows")
+        else:
+            print("  daily: no data")
+    except Exception as e:
+        print(f"  daily ERROR: {e}")
+
     print("\n✅ Sync hoàn tất!")
 
 if __name__ == "__main__":

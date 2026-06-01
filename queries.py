@@ -364,3 +364,47 @@ def broker_by_type(engine, date_from=None, date_to=None, **kwargs):
         return {"types": [], "values": []}
     df2.columns = [c.upper() for c in df2.columns]
     return {"types": df2["BROKER_TYPE"].tolist(), "values": df2["NEW_KH"].tolist()}
+
+
+def daily_trading_kpi(engine, date_from=None, date_to=None, **kwargs):
+    """KPI giao dịch theo từng ngày trong kỳ"""
+    df = date_from or _month_start()
+    dt = date_to   or _today()
+    sql = """
+        SELECT TRUNC(DT)                                            AS trading_date,
+               ROUND(SUM(TRADING_VALUE_STOCK) / 1e9, 2)            AS trading_value_stock,
+               ROUND(SUM(TRADING_VALUE_BOND)  / 1e9, 2)            AS trading_value_bond,
+               ROUND(SUM(TRADING_FEE_NET)     / 1e6, 0)            AS fee_mil,
+               SUM(DERIVATIVE_VOL)                                  AS derivative_vol
+        FROM FACT_DAILY_CUST_TRADING_MGMT
+        WHERE TRUNC(DT) BETWEEN :df AND :dt
+        GROUP BY TRUNC(DT)
+        ORDER BY TRUNC(DT)
+    """
+    df2 = run(engine, sql, {"df": df, "dt": dt})
+    if df2.empty:
+        return []
+    df2.columns = [c.lower() for c in df2.columns]
+    return df2.to_dict('records')
+
+
+def daily_margin_interest(engine, date_from=None, date_to=None, **kwargs):
+    """Lãi margin thực thu theo từng ngày"""
+    df = date_from or _month_start()
+    dt = date_to   or _today()
+    sql = """
+        SELECT TRUNC(DT) AS trading_date,
+               ROUND(SUM(NVL(MARGIN_NORMAL_INTEREST_NET, 0)
+                       + NVL(MARGIN_3B_INTEREST_NET,    0)
+                       + NVL(MARGIN_UT_INTEREST_NET,    0)) / 1e6, 0) AS margin_interest_mil
+        FROM FACT_DAILY_CUST_ASSET_MGMT
+        WHERE TRUNC(DT) BETWEEN :df AND :dt
+        GROUP BY TRUNC(DT)
+        ORDER BY TRUNC(DT)
+    """
+    df2 = run(engine, sql, {"df": df, "dt": dt})
+    if df2.empty:
+        return {}
+    df2.columns = [c.lower() for c in df2.columns]
+    return {str(r['trading_date'])[:10]: float(r['margin_interest_mil'] or 0)
+            for _, r in df2.iterrows()}

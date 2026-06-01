@@ -391,9 +391,7 @@ function getPeriodRange(f){
     return [new Date(y,q*3,1), new Date(y,q*3+3,0)];
   }
   if(f==='year'){
-    const s = m < 3 ? new Date(y-1,3,1) : new Date(y,3,1);
-    const e = m < 3 ? new Date(y,2,31)  : new Date(y+1,2,31);
-    return [s,e];
+    return [new Date(y,0,1), new Date(y,11,31)];
   }
   return [null,null];
 }
@@ -491,10 +489,13 @@ const scales={
 async function loadOverview(){
   const pt=ptype();
   const kpiDateF = pt==='month' ? seriesDateFilters() : [];
-  // Custom: lấy fiscal_year series rồi filter client-side theo date range
   const seriesPt = (currentFilter==='custom') ? 'fiscal_year' : pt;
-  const [kpi,series,ms,msDailyAll]=await Promise.all([
-    sb('kpi_by_period','*',[`period_type=eq.${pt}`,...kpiDateF,'order=period_key.desc','limit=1']),
+  // Custom: query daily records để sum; còn lại query aggregate bình thường
+  const kpiQuery = (currentFilter==='custom' && dateFrom && dateTo)
+    ? sb('kpi_by_period','*',[`period_type=eq.day`,`period_key=gte.${dateFrom}`,`period_key=lte.${dateTo}`,'order=period_key.asc','limit=500'])
+    : sb('kpi_by_period','*',[`period_type=eq.${pt}`,...kpiDateF,'order=period_key.desc','limit=1']);
+  const [kpiRaw,series,ms,msDailyAll]=await Promise.all([
+    kpiQuery,
     sb('series_by_period','*',[`period_type=eq.${seriesPt}`,'order=period_key.asc']),
     sb('market_share','*',['order=gtgd_bil.desc']),
     sb('market_share_daily','*',[...msDateFilters(),'order=trading_date.asc'])
@@ -517,8 +518,21 @@ async function loadOverview(){
       }
     }
   });
-  if(kpi[0]){
-    const k=kpi[0];
+  // Sum daily records nếu custom, còn lại dùng record đầu tiên
+  let kpi = kpiRaw;
+  let kpiSummed = kpi[0] || {};
+  if(currentFilter==='custom' && kpi.length > 0){
+    kpiSummed = {
+      ...kpi[kpi.length-1], // dùng record cuối cho snapshot fields (NAV, AUM, customers)
+      trading_value_stock: kpi.reduce((s,r)=>s+(r.trading_value_stock||0),0),
+      trading_value_bond:  kpi.reduce((s,r)=>s+(r.trading_value_bond||0),0),
+      fee_mil:             kpi.reduce((s,r)=>s+(r.fee_mil||0),0),
+      derivative_vol:      kpi.reduce((s,r)=>s+(r.derivative_vol||0),0),
+      deriv_fee_mil:       kpi.reduce((s,r)=>s+(r.deriv_fee_mil||0),0),
+    };
+  }
+  if(kpiSummed && (kpi.length > 0)){
+    const k=kpiSummed;
     document.getElementById('kpi-total').textContent=fmt(k.total_customer,0);
     document.getElementById('kpi-active').textContent=fmt(k.active_customer,0);
     const rate=k.total_customer>0?(k.active_customer/k.total_customer*100).toFixed(1)+'%':'—';
@@ -639,8 +653,8 @@ async function loadOverview(){
     const dateParts = latestRow.trading_date.split('-');
     const latestDayDate = dateParts.length >= 3 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : latestRow.trading_date;
     let periodShare = 0;
-    if (kpi[0] && kpi[0].market_share_pct != null) {
-      periodShare = kpi[0].market_share_pct;
+    if (kpi[0] && kpiSummed.market_share_pct != null) {
+      periodShare = kpiSummed.market_share_pct;
     } else {
       const sum = msDaily.reduce((acc, r) => acc + (r.market_share_pct || 0), 0);
       periodShare = sum / msDaily.length;
