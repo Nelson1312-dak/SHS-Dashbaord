@@ -369,8 +369,10 @@ def main():
 
             # Push fiscal_year (YTD) một lần — dùng data đã query ở trên
             _, _, _, fy_label = [p for p in period_configs if p[0]=='fiscal_year'][0]
+            fy_key = str(today.year)
             requests.delete(
-                f"{SUPABASE_URL}/rest/v1/series_by_period?period_type=eq.fiscal_year",
+                f"{SUPABASE_URL}/rest/v1/series_by_period"
+                f"?period_type=eq.fiscal_year&period_key=eq.{fy_key}",
                 headers=HEADERS
             )
             fy_rows = [{**r, "period_type": "fiscal_year",
@@ -411,7 +413,8 @@ def main():
                     rows2.append({"metric":"margin_ut","dimension":lbl,"value_num":float(u or 0)})
 
                 requests.delete(
-                    f"{SUPABASE_URL}/rest/v1/series_by_period?period_type=eq.{period_type}",
+                    f"{SUPABASE_URL}/rest/v1/series_by_period"
+                    f"?period_type=eq.{period_type}&period_key=eq.{period_key}",
                     headers=HEADERS
                 )
                 if rows2:
